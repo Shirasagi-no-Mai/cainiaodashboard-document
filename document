@@ -634,8 +634,11 @@ def generate_summary_report(BASE_DIR, SOURCE_FILES):
             if pd.isna(val) or val == "":
                 return pd.NaT
             try:
-                # 尝试多种常见格式
-                return pd.to_datetime(val, errors='coerce')
+                # 关键点：使用 dt.tz_localize(None) 统一去除时区
+                ts = pd.to_datetime(val, errors='coerce')
+                if ts is not pd.NaT and ts.tz is not None:
+                    ts = ts.tz_localize(None) 
+                return ts
             except Exception:
                 return pd.NaT
 
