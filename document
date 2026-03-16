@@ -552,9 +552,10 @@ def update_excel_file(target_path, df_new):
 def generate_summary_report(BASE_DIR, SOURCE_FILES):
     """
     从所有 SOURCE_FILES 的源文件中提取统一字段，生成并更新「精算汇总表.xlsx」
-    新增字段：口岸（如 LAX）、客户（如 4PX）
-    并按 ETA 升序排序（支持常见日期格式）
-    使用与 update_excel_file 完全一致的去重逻辑。
+    修复：
+    1. 解决 11 号后因时区导致的比较报错。
+    2. 保持日期对象格式，恢复 Excel 看板筛选器。
+    3. 增加读取范围至 100 行，防止漏掉高频更新的单子。
     """
     summary_rows = []
     summary_columns = ["主单号", "口岸", "客户", "航班号", "ETA", "总箱数", "总包裹数", "总重量"]
@@ -566,7 +567,8 @@ def generate_summary_report(BASE_DIR, SOURCE_FILES):
 
         print(f"📊 汇总 {base_name} 到精算汇总表...")
         try:
-            df_src = pd.read_excel(src_path).tail(30)
+            # 建议读取 100 行，更稳妥，防止 11 号后的新单子被挤出前 30 行
+            df_src = pd.read_excel(src_path).tail(100) 
         except Exception as e:
             print(f"  ⚠️ 读取 {base_name}.xlsx 失败: {e}")
             continue
@@ -577,38 +579,40 @@ def generate_summary_report(BASE_DIR, SOURCE_FILES):
         customer = parts[1] if len(parts) > 1 else ""
 
         for _, row in df_src.iterrows():
-            # 主单号
+            # 1. 提取并清洗主单号
             mawb = ""
             for col in ["MAWB", "主单", "主单号"]:
                 if col in df_src.columns and pd.notna(row[col]):
                     mawb = str(row[col]).strip()
                     break
+            
+            # 如果没有主单号，跳过该行
+            if not mawb or mawb.lower() == "nan":
+                continue
 
-            # 航班号
+            # 2. 提取航班号
             flight = ""
             for col in ["Flight Number", "航班号"]:
                 if col in df_src.columns and pd.notna(row[col]):
                     flight = row[col]
                     break
 
-            # ETA
+            # 3. 提取 ETA
             eta = row["ETA"] if "ETA" in df_src.columns else ""
 
-            # 总箱数
+            # 4. 提取业务数据
             total_ctn = ""
             for col in ["Total CTN", "总箱数"]:
                 if col in df_src.columns and pd.notna(row[col]):
                     total_ctn = row[col]
                     break
 
-            # 总包裹数
             total_parcels = ""
             for col in ["Total Parcels", "总包裹数"]:
                 if col in df_src.columns and pd.notna(row[col]):
                     total_parcels = row[col]
                     break
 
-            # 总重量
             weight = ""
             for col in ["Weight", "总重量"]:
                 if col in df_src.columns and pd.notna(row[col]):
@@ -629,28 +633,27 @@ def generate_summary_report(BASE_DIR, SOURCE_FILES):
     if summary_rows:
         df_summary = pd.DataFrame(summary_rows, columns=summary_columns)
 
-        # === 新增：按 ETA 排序 ===
-        def parse_eta(val):
-            if pd.isna(val) or val == "":
-                return pd.NaT
-            try:
-                # 关键点：使用 dt.tz_localize(None) 统一去除时区
-                ts = pd.to_datetime(val, errors='coerce')
-                if ts is not pd.NaT and ts.tz is not None:
-                    ts = ts.tz_localize(None) 
-                return ts
-            except Exception:
-                return pd.NaT
+        # ==================== 核心逻辑修改：处理日期和排序 ====================
+        # 第一步：强制转换为 datetime 格式，错误的格式转为 NaT
+        df_summary["ETA"] = pd.to_datetime(df_summary["ETA"], errors='coerce')
+        
+        # 第二步：解决 tz-aware 报错（强制去掉时区，转为本地中性时间）
+        # 这步是解决 11 号报错的关键，同时保留了日期对象属性，让看板能筛选
+        df_summary["ETA"] = df_summary["ETA"].dt.tz_localize(None)
 
-        # 创建临时排序列
-        df_summary["_sort_eta"] = df_summary["ETA"].apply(parse_eta)
-        # 先按有效日期升序，NaT（无效日期）排在最后
-        df_summary = df_summary.sort_values(by="_sort_eta", na_position='last').drop(columns=["_sort_eta"])
-        # 重置索引（非必须，但更整洁）
+        # 第三步：排序。直接按 ETA 列排，不再用辅助列，确保列类型纯净
+        # 升序排列，较早的日期在上，空日期（NaT）排最后
+        df_summary = df_summary.sort_values(by="ETA", ascending=True, na_position='last')
+        
+        # 第四步：重置索引
         df_summary = df_summary.reset_index(drop=True)
+        # ====================================================================
 
         summary_path = os.path.join(BASE_DIR, "精算汇总表.xlsx")
+        
+        # 执行写入（请确保 update_excel_file 内部没有 .astype(str) 的全局操作）
         update_excel_file(summary_path, df_summary)
+        print(f"✅ 精算汇总表更新完成，已尝试修正日期筛选格式。")
     else:
         print("📊 未找到任何可汇总的数据。")
 #**********************************************************************************************
