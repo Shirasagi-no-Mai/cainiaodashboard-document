@@ -60,10 +60,13 @@ def get_logic_registry(input_date, month_abbr):
                     "ETA": "ETA", "总重量": "总重量", "总包裹数": "总包裹数", "总箱数": "总箱数",
                     "查验小包数": "", "查验包裹费": "", "航司拆板费": "", "目的港费": "", "查验费": "", "仓储费": "",
                     "COE重量": "COE 重量", "Maersk重量": "Maersk 重量", "USPS重量": "USPS 重量",
+                    "Speedx重量": "Speedx重量", # ✅ 新增
                     "COE送货费": lambda r: safe_float(r.get("COE 重量")) * 0.1,
                     "Maersk送货费": lambda r: safe_float(r.get("Maersk 重量")) * 0.1,
                     "USPS送货费": lambda r: safe_float(r.get("USPS 重量")) * 0.1,
-                    "COE大箱数": "COE 大箱数", "Maersk大箱数": "Maersk 大箱数", "USPS大箱数": "USPS 大箱数"
+                    "Speedx送货费": lambda r: safe_float(r.get("Speedx重量")) * 0.1, # ✅ 新增
+                    "COE大箱数": "COE 大箱数", "Maersk大箱数": "Maersk 大箱数", "USPS大箱数": "USPS 大箱数",
+                    "Speedx大箱数": "Speedx大箱数" # ✅ 新增
                 }
             }
         ],
@@ -125,8 +128,11 @@ def get_logic_registry(input_date, month_abbr):
                     "COE 重量": "COE 重量",
                     "Maersk 大箱数": "Maersk 大箱数",
                     "Maersk 重量": "Maersk 重量",
+                    "Speedx大箱数": "Speedx大箱数", # ✅ 新增
+                    "Speedx 重量": "Speedx重量", # ✅ 新增
                     "COE 送货费": lambda r: round(safe_float(r.get("COE 重量")) * 0.1, 2),
-                    "Maersk送货费": lambda r: round(safe_float(r.get("Maersk 重量")) * 0.1, 2)
+                    "Maersk送货费": lambda r: round(safe_float(r.get("Maersk 重量")) * 0.1, 2),
+                    "Speedx送货费": lambda r: round(safe_float(r.get("Speedx重量")) * 0.1, 2) # ✅ 新增
                 }
             }
         ],
@@ -204,7 +210,8 @@ def get_logic_registry(input_date, month_abbr):
                     # --- 费用计算 (*0.1) ---
                     "COE送货费": lambda r: round(safe_float(r.get("COE 重量")) * 0.1, 2),
                     "Maersk送货费": lambda r: round(safe_float(r.get("Maersk 重量")) * 0.1, 2),
-                    "SPX送货费": lambda r: round(safe_float(r.get("Speedx重量")) * 0.1, 2)
+                    "SPX送货费": lambda r: round(safe_float(r.get("Speedx重量")) * 0.1, 2),
+                    "USPS送货费": lambda r: round(safe_float(r.get("USPS 重量")) * 0.1, 2) # ✅ 新增
                 }
             }
         ],
@@ -595,7 +602,7 @@ def generate_summary_report(BASE_DIR, SOURCE_FILES):
         print(f"📊 正在汇总: {base_name}")
         try:
             # 读取最近 100 行，确保包含 11 号后的最新数据
-            df_src = pd.read_excel(src_path).tail(600)
+            df_src = pd.read_excel(src_path).tail(6000)
         except Exception as e:
             print(f"  ⚠️ 读取失败 {base_name}: {e}")
             continue
@@ -667,7 +674,7 @@ def run_main():
             continue
 
         print(f"🚀 正在处理: {base_name}")
-        df_src = pd.read_excel(src_path).tail(30)
+        df_src = pd.read_excel(src_path).tail(6000)
 
         for task in registry[base_name]:
             target_path = os.path.join(BASE_DIR, f"{base_name}{task['suffix']}.xlsx")
