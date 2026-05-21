@@ -331,7 +331,7 @@ def get_logic_registry(input_date, month_abbr):
                     "pallet": lambda r: (
                                                 ceil_val(r.get("COE/UP CTN"), 20) + ceil_val(r.get("GOFO CTN"), 20) +
                                                 ceil_val(r.get("FEDEX CTN"), 20) + ceil_val(r.get("TOO CTN"), 20) +
-                                                ceil_val(r.get("UNIUNI CTN"), 20) + ceil_val(r.get("ACI CTN"), 20) +
+                                                ceil_val(r.get("OC UNIUNI CTN"), 20) + ceil_val(r.get("ACI CTN"), 20) +
                                                 ceil_val(r.get("DHL CTN"), 20) + ceil_val(r.get("IB CTN"), 20) +
                                                 ceil_val(r.get("SPX CTN"), 20) + ceil_val(r.get("YW EXP CTN"), 20) +
                                                 ceil_val(r.get("USPS CTN"), 20) + ceil_val(r.get("ATL-GOFO CTN"), 20) +
@@ -344,7 +344,7 @@ def get_logic_registry(input_date, month_abbr):
                     "Pallet #GOFO": lambda r: ceil_val(r.get("GOFO CTN"), 20),
                     "Pallet #FEDEX": lambda r: ceil_val(r.get("FEDEX CTN"), 20),
                     "Pallet #TE": lambda r: ceil_val(r.get("TOO CTN"), 20),
-                    "Pallet #UNI": lambda r: ceil_val(r.get("UNIUNI CTN"), 20),
+                    "Pallet #UNI": lambda r: ceil_val(r.get("OC UNIUNI CTN"), 20),
                     "Pallet #ACI": lambda r: ceil_val(r.get("ACI CTN"), 20),
                     "Pallet #DHL": lambda r: ceil_val(r.get("DHL CTN"), 20),
                     "Pallet #IB": lambda r: ceil_val(r.get("IB CTN"), 20),
@@ -424,8 +424,8 @@ def get_logic_registry(input_date, month_abbr):
                     "送货费": lambda r: (
                             (max(75, safe_float(r.get("COE/UP Weight")) * 0.1) if safe_float(
                                 r.get("COE/UP Weight")) > 0 else 0) +
-                            (max(75, safe_float(r.get("SPX Weight")) * 0.1) if safe_float(
-                                r.get("SPX Weight")) > 0 else 0) +
+                            # (max(75, safe_float(r.get("SPX Weight")) * 0.1) if safe_float(
+                            #     r.get("SPX Weight")) > 0 else 0) +
                             (max(75, safe_float(r.get("USPS Weight")) * 0.1) if safe_float(
                                 r.get("USPS Weight")) > 0 else 0)
                     ),
