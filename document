@@ -704,7 +704,7 @@ def generate_summary_report(BASE_DIR, SOURCE_FILES):
         print(f"📊 正在汇总: {base_name}")
         try:
             # 读取最近 100 行，确保包含 11 号后的最新数据
-            df_src = pd.read_excel(src_path).tail(6000)
+            df_src = pd.read_excel(src_path).tail(20)
         except Exception as e:
             print(f"  ⚠️ 读取失败 {base_name}: {e}")
             continue
@@ -776,7 +776,7 @@ def run_main():
             continue
 
         print(f"🚀 正在处理: {base_name}")
-        df_src = pd.read_excel(src_path).tail(6000)
+        df_src = pd.read_excel(src_path).tail(20)
 
         for task in registry[base_name]:
             target_path = os.path.join(BASE_DIR, f"{base_name}{task['suffix']}.xlsx")
