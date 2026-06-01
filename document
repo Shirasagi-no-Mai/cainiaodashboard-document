@@ -220,22 +220,10 @@ def get_logic_registry(input_date, month_abbr):
             {
                 "suffix": "-日报",
                 "mapping": {
-                    "PTT": "",
-                    "FEE": "",
-                    "Closure": "",
-                    "MAWB": "MAWB",
-                    "Flight Number": "Flight Number",
-                    "type": "",
-                    "ETA": "ETA",
-                    "PICK UP": "",
-                    "weight": "Weight",
-                    "total ctn": "Total CTN",
-                    "total parcel": "Total Parcels",
-                    "PMC#": "",
-                    "WH arrival": "",
-                    "Customs release": "",
-                    "Hold": "",
-                    "Remark": "",
+                    "PTT": "", "FEE": "", "Closure": "", "MAWB": "MAWB", "Flight Number": "Flight Number",
+                    "type": "", "ETA": "ETA", "PICK UP": "", "weight": "Weight", "total ctn": "Total CTN",
+                    "total parcel": "Total Parcels", "PMC#": "", "WH arrival": "", "Customs release": "",
+                    "Hold": "", "Remark": "",
 
                     # --- CTN 数量提取 ---
                     "COE/UP CTN": "COE/UP CTN",
@@ -246,9 +234,9 @@ def get_logic_registry(input_date, month_abbr):
                     "UNIUNI CTN": "UNIUNI CTN",
                     "OC UNIUNI CTN": "OC UNIUNI CTN",
                     "DHL CTN": "DHL CTN",
-                    "IB CTN": "IB CTN",  # 对应原表 IB CTN
+                    "IB CTN": "IB CTN",
                     "SPX CTN": "SPX CTN",
-
+                    "SWIFTX CTN": "SWIFTX CTN",  # ✅ 新增 Swiftx
                     "YW EXP CTN": "YW EXP CTN",
                     "USPS CTN": "USPS CTN",
                     "ATL-GOFO CTN": "ATL-GOFO CTN",
@@ -256,7 +244,7 @@ def get_logic_registry(input_date, month_abbr):
                     "ATL-ACI CTN": "ATL-ACI CTN",
                     "ATL-USPS CTN": "ATL-USPS CTN",
 
-                    # --- Handover 逻辑 (有数字留空 ""，无数字/0 填 "-") ---
+                    # --- Handover 逻辑 ---
                     "COE HANDOVER": lambda r: check_na(r.get("COE/UP CTN")),
                     "GOFO HANDOVER": lambda r: check_na(r.get("GOFO CTN")),
                     "FEDEX HANDOVER": lambda r: check_na(r.get("FEDEX CTN")),
@@ -267,6 +255,7 @@ def get_logic_registry(input_date, month_abbr):
                     "DHL HANDOVER": lambda r: check_na(r.get("DHL CTN")),
                     "IB HANDOVER": lambda r: check_na(r.get("IB CTN")),
                     "SPX HANDOVER": lambda r: check_na(r.get("SPX CTN")),
+                    "SWIFTX HANDOVER": lambda r: check_na(r.get("SWIFTX CTN")),  # ✅ 新增 Handover
                     "YW EXP HANDOVER": lambda r: check_na(r.get("YW EXP CTN")),
                     "USPS HANDOVER": lambda r: check_na(r.get("USPS CTN")),
                     "ATL-GOFO HANDOVER": lambda r: check_na(r.get("ATL-GOFO CTN")),
@@ -274,48 +263,34 @@ def get_logic_registry(input_date, month_abbr):
                     "ATL-ACI HANDOVER": lambda r: check_na(r.get("ATL-ACI CTN")),
                     "ATL-USPS HANDOVER": lambda r: check_na(r.get("ATL-USPS CTN")),
 
-                    # --- 固定留空项 ---
-                    "2060": "",
-                    "PMC return": "",
-                    "PMC pick up": "",
-                    "PU invoice": "",
-                    "PMC Dropoff": "",
-                    "DO invoice": "",
-                    "Additional": ""
+                    "2060": "", "PMC return": "", "PMC pick up": "", "PU invoice": "", "PMC Dropoff": "",
+                    "DO invoice": "", "Additional": ""
                 }
             },
             {
                 "suffix": "-实报实销",
                 "mapping": {
-                    "MAWB": "MAWB",
-                    "收据": "",
-                    "口岸": "ORD",
-                    "月份": month_abbr,
-                    "ETA": "ETA",
-                    "weight": "Weight",
-                    "total CTN": "Total CTN",
-                    "total Parcel": "Total Parcels",
+                    "MAWB": "MAWB", "收据": "", "口岸": "ORD", "月份": month_abbr, "ETA": "ETA",
+                    "weight": "Weight", "total CTN": "Total CTN", "total Parcel": "Total Parcels",
 
                     # --- 重量提取 ---
                     "SPX Weight": "SPX Weight",
+                    "SWIFTX Weight": "SWIFTX Weight",  # ✅ 新增重量
                     "USPS Weight": "USPS Weight",
                     "DHL Weight": "DHL Weight",
                     "ACI Weight": "ACI Weight",
 
-                    # --- 固定留空项 ---
-                    "查验小包数": "",
-                    "目的港费": "",
-                    "航司拆板费": "",
-                    "海关查验费": "",
-                    "查验件挑选费": "",
+                    "查验小包数": "", "目的港费": "", "航司拆板费": "", "海关查验费": "", "查验件挑选费": "",
 
-                    # --- 基础费率计算 ---
                     "机场提货费": lambda r: round(safe_float(r.get("Weight")) * 0.1, 2),
                     "库内拆板费": lambda r: round(safe_float(r.get("Weight")) * 0.09, 2),
 
-                    # --- 送货费 (Min75 逻辑) ---
+                    # --- 送货费 ---
                     "送货费-SPEEDX": lambda r: max(75, round(safe_float(r.get("SPX Weight")) * 0.1, 2)) if safe_float(
                         r.get("SPX Weight")) > 0 else 0,
+                    "送货费-SWIFTX": lambda r: max(75,
+                                                   round(safe_float(r.get("SWIFTX Weight")) * 0, 2)) if safe_float(
+                        r.get("SWIFTX Weight")) > 0 else 0,  # ✅ 新增送货费
                     "送货费-USPS": lambda r: max(75, round(safe_float(r.get("USPS Weight")) * 0.1, 2)) if safe_float(
                         r.get("USPS Weight")) > 0 else 0,
                     "送货费-DHL": lambda r: max(75, round(safe_float(r.get("DHL Weight")) * 0.1, 2)) if safe_float(
@@ -323,24 +298,24 @@ def get_logic_registry(input_date, month_abbr):
                     "送货费-ACI": lambda r: max(75, round(safe_float(r.get("ACI Weight")) * 0.1, 2)) if safe_float(
                         r.get("ACI Weight")) > 0 else 0,
 
-                    # --- 汇总费用 ---
-                    # gayload：(USPS数量 + ATL-usps数量) * 20
                     "gayload": lambda r: (ceil_val(r.get("USPS CTN"), 20) + ceil_val(r.get("ATL-USPS CTN"), 20)) * 20,
 
-                    # pallet：所有计算好的数量求和 * 12
+                    # --- 更新 Pallet 汇总公式：加入 Swiftx ---
                     "pallet": lambda r: (
                                                 ceil_val(r.get("COE/UP CTN"), 20) + ceil_val(r.get("GOFO CTN"), 20) +
                                                 ceil_val(r.get("FEDEX CTN"), 20) + ceil_val(r.get("TOO CTN"), 20) +
                                                 ceil_val(r.get("OC UNIUNI CTN"), 20) + ceil_val(r.get("ACI CTN"), 20) +
                                                 ceil_val(r.get("DHL CTN"), 20) + ceil_val(r.get("IB CTN"), 20) +
-                                                ceil_val(r.get("SPX CTN"), 20) + ceil_val(r.get("YW EXP CTN"), 20) +
+                                                ceil_val(r.get("SPX CTN"), 20) +
+                                                ceil_val(r.get("SWIFTX CTN"), 20) +  # ✅ 公式更新
+                                                ceil_val(r.get("YW EXP CTN"), 20) +
                                                 ceil_val(r.get("USPS CTN"), 20) + ceil_val(r.get("ATL-GOFO CTN"), 20) +
                                                 ceil_val(r.get("ATL-DHL CTN"), 20) + ceil_val(r.get("ATL-ACI CTN"),
                                                                                               20) +
                                                 ceil_val(r.get("ATL-USPS CTN"), 20)
                                         ) * 12,
-                    # --- 各渠道取整计算 (均除以 20) ---
-                    "Pallet #COE": lambda r: ceil_val(r.get("COE/UP CT n"), 20),
+
+                    "Pallet #COE": lambda r: ceil_val(r.get("COE/UP CTN"), 20),
                     "Pallet #GOFO": lambda r: ceil_val(r.get("GOFO CTN"), 20),
                     "Pallet #FEDEX": lambda r: ceil_val(r.get("FEDEX CTN"), 20),
                     "Pallet #TE": lambda r: ceil_val(r.get("TOO CTN"), 20),
@@ -349,43 +324,35 @@ def get_logic_registry(input_date, month_abbr):
                     "Pallet #DHL": lambda r: ceil_val(r.get("DHL CTN"), 20),
                     "Pallet #IB": lambda r: ceil_val(r.get("IB CTN"), 20),
                     "Pallet #SPX": lambda r: ceil_val(r.get("SPX CTN"), 20),
+                    "Pallet #SWIFTX": lambda r: ceil_val(r.get("SWIFTX CTN"), 20),  # ✅ 新增单项
                     "Pallet #YW": lambda r: ceil_val(r.get("YW EXP CTN"), 20),
                     "Pallet #USPS": lambda r: ceil_val(r.get("USPS CTN"), 20),
                     "Pallet #ATL-GOFO": lambda r: ceil_val(r.get("ATL-GOFO CTN"), 20),
                     "Pallet #ATL-DHL": lambda r: ceil_val(r.get("ATL-DHL CTN"), 20),
                     "Pallet #ATL-ACI": lambda r: ceil_val(r.get("ATL-ACI CTN"), 20),
                     "Pallet #ATL-USPS": lambda r: ceil_val(r.get("ATL-USPS CTN"), 20),
-
                 }
             }
         ],
+
         "MIA-4PX": [
             {
                 "suffix": "-日报",
                 "mapping": {
-                    "未识别渠道": "",
-                    "MAWB": "MAWB",
-                    "COE": "COE/UP CTN",
-                    "GOFO": "GOFO CTN",
-                    "SPX": "SPX CTN",
-                    "TOO": "TOO CTN",
-                    "USPS": "USPS CTN",
+                    "未识别渠道": "", "MAWB": "MAWB",
+                    "COE": "COE/UP CTN", "GOFO": "GOFO CTN", "SPX": "SPX CTN",
+                    "TOO": "TOO CTN", "USPS": "USPS CTN", "SWIFTX": "SWIFTX CTN",  # ✅ 新增
                     "YANWEN": "YW EXP CTN",
-                    "total CTN": lambda r: sum(
-                        [safe_float(r.get(c)) for c in ["COE/UP CTN", "GOFO CTN", "SPX CTN", "TOO CTN", "USPS CTN"]]),
-                    "parcel": "Total Parcels",
-                    "PMC": "",
-                    "PMC return": "",
-                    "FLT#": "Flight Number",
-                    "ETA": "ETA",
-                    "HOLD": "",
-                    "1F": "",
-                    "Terminal Fee": "",
-                    "2020": "",
-                    "2060": "",
+                    # 更新总箱数求和
+                    "total CTN": lambda r: sum([safe_float(r.get(c)) for c in
+                                                ["COE/UP CTN", "GOFO CTN", "SPX CTN", "TOO CTN", "USPS CTN",
+                                                 "SWIFTX CTN"]]),
+                    "parcel": "Total Parcels", "PMC": "", "PMC return": "", "FLT#": "Flight Number",
+                    "ETA": "ETA", "HOLD": "", "1F": "", "Terminal Fee": "", "2020": "", "2060": "",
                     "COE 2070": lambda r: check_na(r.get("COE/UP CTN")),
                     "GOFO 2070": lambda r: check_na(r.get("GOFO CTN")),
                     "SPX 2070": lambda r: check_na(r.get("SPX CTN")),
+                    "SWIFTX 2070": lambda r: check_na(r.get("SWIFTX CTN")),  # ✅ 新增
                     "TOO 2070": lambda r: check_na(r.get("TOO CTN")),
                     "USPS 2070": lambda r: check_na(r.get("USPS CTN"))
                 }
@@ -393,56 +360,39 @@ def get_logic_registry(input_date, month_abbr):
             {
                 "suffix": "-实报实销",
                 "mapping": {
-                    # --- 基础信息 ---
-                    "主单号": "MAWB",
-                    "口岸": "MIA",
-                    "月份": month_abbr,
-                    "ETA": "ETA",
-                    "大包": "Total CTN",
-                    "小包": "Total Parcels",
-                    "重量(KG)": "Weight",
+                    "主单号": "MAWB", "口岸": "MIA", "月份": month_abbr, "ETA": "ETA",
+                    "大包": "Total CTN", "小包": "Total Parcels", "重量(KG)": "Weight",
 
-                    # --- 🚩 必须要先定义这几列，下面的“送货费”公式才能从 row 里拿到数据 ---
-                    "COE/UP Weight": "COE/UP Weight",
-                    "GOFO Weight": "GOFO Weight",
-                    "SPX Weight": "SPX Weight",
-                    "TOO Weight": "TOO Weight",
-                    "USPS Weight": "USPS Weight",
-                    "YW EXP Weight": "YW EXP Weight",
+                    "COE/UP Weight": "COE/UP Weight", "GOFO Weight": "GOFO Weight",
+                    "SPX Weight": "SPX Weight", "SWIFTX Weight": "SWIFTX Weight",  # ✅ 新增
+                    "TOO Weight": "TOO Weight", "USPS Weight": "USPS Weight", "YW EXP Weight": "YW EXP Weight",
 
-                    # --- 固定留空项 ---
-                    "查验小包数": "",
-                    "航司拆板费": "",
-                    "海关查验件挑选费": "",
-                    "ISC 费用": "",
+                    "查验小包数": "", "航司拆板费": "", "海关查验件挑选费": "", "ISC 费用": "",
 
-                    # --- 费用计算 ---
                     "机场提货费": lambda r: round(safe_float(r.get("Weight")) * 0.1, 2),
                     "库内拆板费": lambda r: round(safe_float(r.get("Weight")) * 0.09, 2),
 
-                    # --- 🚚 送货费：只有重量 > 0 才收 Min 75，否则为 0 ---
                     "送货费": lambda r: (
                             (max(75, safe_float(r.get("COE/UP Weight")) * 0.1) if safe_float(
                                 r.get("COE/UP Weight")) > 0 else 0) +
-                            # (max(75, safe_float(r.get("SPX Weight")) * 0.1) if safe_float(
-                            #     r.get("SPX Weight")) > 0 else 0) +
+
                             (max(75, safe_float(r.get("USPS Weight")) * 0.1) if safe_float(
                                 r.get("USPS Weight")) > 0 else 0)
                     ),
                     "Gaylord": lambda r: ceil_val(r.get("USPS CTN"), 16) * 15,
 
                     "Pallet": lambda r: (
-                                                ceil_val(r.get("COE/UP CTN"), 16) +
-                                                ceil_val(r.get("GOFO CTN"), 16) +
-                                                ceil_val(r.get("SPX CTN"), 16) +
-                                                ceil_val(r.get("TOO CTN"), 16) +
-                                                ceil_val(r.get("USPS CTN"), 16) +
+                                                ceil_val(r.get("COE/UP CTN"), 16) + ceil_val(r.get("GOFO CTN"), 16) +
+                                                ceil_val(r.get("SPX CTN"), 16) + ceil_val(r.get("SWIFTX CTN"),
+                                                                                          16) +  # ✅ 公式累积
+                                                ceil_val(r.get("TOO CTN"), 16) + ceil_val(r.get("USPS CTN"), 16) +
                                                 ceil_val(r.get("YW EXP CTN"), 16)
                                         ) * 12,
 
                     "COE": lambda r: ceil_val(r.get("COE/UP CTN"), 16),
                     "GOFO": lambda r: ceil_val(r.get("GOFO CTN"), 16),
                     "SPX": lambda r: ceil_val(r.get("SPX CTN"), 16),
+                    "SWIFTX": lambda r: ceil_val(r.get("SWIFTX CTN"), 16),  # ✅ 新增单项
                     "TooExpress": lambda r: ceil_val(r.get("TOO CTN"), 16),
                     "USPS": lambda r: ceil_val(r.get("USPS CTN"), 16),
                     "Ywen": lambda r: ceil_val(r.get("YW EXP CTN"), 16),
@@ -450,10 +400,6 @@ def get_logic_registry(input_date, month_abbr):
             }
         ],
 
-        # ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** *
-        # ---------------------------------------------------------
-        # 2. LAX-4PX 的逻辑
-        # ---------------------------------------------------------
         "LAX-4PX": [
             {
                 "suffix": "-实报实销",
@@ -461,6 +407,7 @@ def get_logic_registry(input_date, month_abbr):
                     "主单": "MAWB", "口岸": "LAX", "月份": month_abbr, "ETA": "ETA",
                     "大包数": "Total CTN", "小包数": "Total Parcels", "重量": "Weight",
                     "COE重量": "COE/UP Weight", "DHL重量": "DHL Weight", "SPX重量": "SPX Weight",
+                    "SWIFTX重量": "SWIFTX Weight",  # ✅ 新增重量
                     "USPS重量": "USPS Weight", "FEDEX重量": "FEDEX Weight",
                     "查验小包数": "", "航司拆板费": "", "海关查验件挑选费": "", "海关查验费": "", "航司目的港费": "",
                     "CES提货费": "",
@@ -472,27 +419,31 @@ def get_logic_registry(input_date, month_abbr):
                         r.get("DHL Weight")) > 0 else 0,
                     "送货费-SPEEDX": lambda r: max(75, safe_float(r.get("SPX Weight")) * 0.1) if safe_float(
                         r.get("SPX Weight")) > 0 else 0,
+                    "送货费-SWIFTX": lambda r: max(75, safe_float(r.get("SWIFTX Weight")) * 0) if safe_float(
+                        r.get("SWIFTX Weight")) > 0 else 0,  # ✅ 新增送货费
                     "送货费-USPS": lambda r: max(75, safe_float(r.get("USPS Weight")) * 0.1) if safe_float(
                         r.get("USPS Weight")) > 0 else 0,
                     "送货费-FEDEX": lambda r: max(75, safe_float(r.get("FEDEX Weight")) * 0.1) if safe_float(
                         r.get("FEDEX Weight")) > 0 else 0,
-                    # 计算 Gaylord: USPS箱数/10 向上取整 * 15
+
                     "Gaylord/$15": lambda r: ceil_val(r.get("USPS CTN"), 10) * 15,
-                    # 计算 Pallet: 所有箱数计算完后的总和 * 12
                     "PALLET($12)": lambda r: (
                                                      ceil_val(r.get("COE/UP CTN"), 20) + ceil_val(r.get("DHL CTN"),
                                                                                                   20) +
-                                                     ceil_val(r.get("SPX CTN"), 20) + ceil_val(r.get("ACI CTN"), 20) +
-                                                     ceil_val(r.get("USPS CTN"), 10) + ceil_val(r.get("FEDEX CTN"),
-                                                                                                20) +
-                                                     ceil_val(r.get("GOFO CTN"), 20) + ceil_val(r.get("TOO CTN"), 20) +
-                                                     ceil_val(r.get("IB CTN"), 20) + ceil_val(r.get("UNIUNI CTN"), 20) +
-                                                     ceil_val(r.get("OC UNIUNI CTN"), 20) + ceil_val(
-                                                 r.get("YW EXP CTN"), 20)
+                                                     ceil_val(r.get("SPX CTN"), 20) + ceil_val(r.get("SWIFTX CTN"),
+                                                                                               20) +  # ✅ 汇总公式
+                                                     ceil_val(r.get("ACI CTN"), 20) + ceil_val(r.get("USPS CTN"), 10) +
+                                                     ceil_val(r.get("FEDEX CTN"), 20) + ceil_val(r.get("GOFO CTN"),
+                                                                                                 20) +
+                                                     ceil_val(r.get("TOO CTN"), 20) + ceil_val(r.get("IB CTN"), 20) +
+                                                     ceil_val(r.get("UNIUNI CTN"), 20) + ceil_val(
+                                                 r.get("OC UNIUNI CTN"), 20) +
+                                                     ceil_val(r.get("YW EXP CTN"), 20)
                                              ) * 12,
                     "COE/UP": lambda r: ceil_val(r.get("COE/UP CTN"), 20),
                     "DHLe": lambda r: ceil_val(r.get("DHL CTN"), 20),
                     "SPX": lambda r: ceil_val(r.get("SPX CTN"), 20),
+                    "SWIFTX": lambda r: ceil_val(r.get("SWIFTX CTN"), 20),  # ✅ 新增单项
                     "ACI": lambda r: ceil_val(r.get("ACI CTN"), 20),
                     "USPS": lambda r: ceil_val(r.get("USPS CTN"), 10),
                     "FEDEX": lambda r: ceil_val(r.get("FEDEX CTN"), 20),
@@ -503,110 +454,109 @@ def get_logic_registry(input_date, month_abbr):
                     "OC UNIUNI": lambda r: ceil_val(r.get("OC UNIUNI CTN"), 20),
                     "YW EXPRESS": lambda r: ceil_val(r.get("YW EXP CTN"), 20)
                 }
-
-            }
-        ],
-        "LAX-BDT": [
-            {
-                "suffix": "-实报实销",
-                "mapping": {
-                    "主单号": "MAWB", "收据": "", "口岸": "LAX", "月份": month_abbr, "ETA": "ETA", "重量(KG)": "Weight", "大包数": "Total CTN", "小包数": "Total Parcels",
-                    "COE重量 (KG)": "COE/UP Weight", "GOFO重量 (KG)": "GOFO Weight", "SPX重量(KG)": "SPX Weight", "UNI重量(KG)": "UNIUNI Weight", "USPS重量(KG)": "USPS Weight", "Fedex重量(KG)": "FEDEX Weight",
-                    "查验小包数": "", "航司目的港费": "", "航司拆板费 (BREAK DOWN)": "", "海关查验费 (不去CES不收)": "", "海关查验件 挑选费 ": "",
-                    "机场提货费 ": lambda r: round(safe_float(r.get("Weight")) * 0.1, 2),
-                    "库内拆板费 ": lambda r: round(safe_float(r.get("Weight")) * 0.09, 2),
-                    "送货费-GOFO ": lambda r: max(75, round(safe_float(r.get("GOFO Weight")) * 0.1, 2)) if safe_float(r.get("GOFO Weight")) > 0 else 0,
-                    "送货费-SPEEDX ": lambda r: max(75, round(safe_float(r.get("SPX Weight")) * 0.1, 2)) if safe_float(r.get("SPX Weight")) > 0 else 0,
-                    "送货费-UNI ": lambda r: max(75, round(safe_float(r.get("UNIUNI Weight")) * 0.1, 2)) if safe_float(r.get("UNIUNI Weight")) > 0 else 0,
-                    "送货费-USPS ": lambda r: max(75, round(safe_float(r.get("USPS Weight")) * 0.1, 2)) if safe_float(r.get("USPS Weight")) > 0 else 0,
-                    "Gaylord ($15)": lambda r: ceil_val(r.get("USPS CTN"), 10) * 15,
-                    "PALLET ($12)": lambda r: (ceil_val(r.get("COE/UP CTN"), 20) + ceil_val(r.get("GOFO CTN"), 20) + ceil_val(r.get("SPX CTN"), 20) + ceil_val(r.get("UNIUNI CTN"), 20) + ceil_val(r.get("USPS CTN"), 10) + ceil_val(r.get("FEDEX CTN"), 20)) * 12,
-                    "COE Pallet #": lambda r: ceil_val(r.get("COE/UP CTN"), 20),
-                    "GOFO Pallet #": lambda r: ceil_val(r.get("GOFO CTN"), 20),
-                    "SPX Pallet #": lambda r: ceil_val(r.get("SPX CTN"), 20),
-                    "UNI Pallet #": lambda r: ceil_val(r.get("UNIUNI CTN"), 20),
-                    "USPS Pallet #": lambda r: ceil_val(r.get("USPS CTN"), 10),
-                    "Fedex Pallet #": lambda r: ceil_val(r.get("FEDEX CTN"), 20),
-                    "备注": ""
-                }
-            }
-        ],
-        "ORD-BDT": [
-            {
-                "suffix": "-实报实销",
-                "mapping": {
-                    "主单号": "MAWB", "收据": "", "口岸": "ORD", "月份": month_abbr, "ETA": "ETA", "重量(KG)": "Weight", "大包数": "Total CTN", "小包数": "Total Parcels",
-                    "COE重量 (KG)": "COE/UP Weight", "GOFO重量 (KG)": "GOFO Weight", "SPX重量(KG)": "SPX Weight", "UNI重量(KG)": "UNIUNI Weight", "USPS重量(KG)": "USPS Weight", "Fedex重量(KG)": "FEDEX Weight",
-                    "查验小包数": "", "航司目的港费": "", "航司拆板费 (BREAK DOWN)": "", "海关查验费 (不去CES不收)": "", "海关查验件 挑选费 ": "",
-                    "机场提货费 ": lambda r: round(safe_float(r.get("Weight")) * 0.1, 2),
-                    "库内拆板费 ": lambda r: round(safe_float(r.get("Weight")) * 0.09, 2),
-                    "送货费-GOFO ": lambda r: max(75, round(safe_float(r.get("GOFO Weight")) * 0.1, 2)) if safe_float(r.get("GOFO Weight")) > 0 else 0,
-                    "送货费-SPEEDX ": lambda r: max(75, round(safe_float(r.get("SPX Weight")) * 0.1, 2)) if safe_float(r.get("SPX Weight")) > 0 else 0,
-                    "送货费-UNI ": lambda r: max(75, round(safe_float(r.get("UNIUNI Weight")) * 0.1, 2)) if safe_float(r.get("UNIUNI Weight")) > 0 else 0,
-                    "送货费-USPS ": lambda r: max(75, round(safe_float(r.get("USPS Weight")) * 0.1, 2)) if safe_float(r.get("USPS Weight")) > 0 else 0,
-                    "Gaylord ($15)": lambda r: ceil_val(r.get("USPS CTN"), 20) * 15*2,
-                    "PALLET ($12)": lambda r: (ceil_val(r.get("COE/UP CTN"), 20) + ceil_val(r.get("GOFO CTN"), 20) + ceil_val(r.get("SPX CTN"), 20) + ceil_val(r.get("UNIUNI CTN"), 20) + ceil_val(r.get("USPS CTN"), 20) + ceil_val(r.get("FEDEX CTN"), 20)) * 12,
-                    "COE Pallet #": lambda r: ceil_val(r.get("COE/UP CTN"), 20),
-                    "GOFO Pallet #": lambda r: ceil_val(r.get("GOFO CTN"), 20),
-                    "SPX Pallet #": lambda r: ceil_val(r.get("SPX CTN"), 20),
-                    "UNI Pallet #": lambda r: ceil_val(r.get("UNIUNI CTN"), 20),
-                    "USPS Pallet #": lambda r: ceil_val(r.get("USPS CTN"), 20),
-                    "Fedex Pallet #": lambda r: ceil_val(r.get("FEDEX CTN"), 20),
-                    "备注": ""
-                }
-            }
-        ],
-        "MIA-BDT": [
-            {
-                "suffix": "-实报实销",
-                "mapping": {
-                    "主单号": "MAWB", "收据": "", "口岸": "MIA", "月份": month_abbr, "ETA": "ETA", "重量(KG)": "Weight", "大包数": "Total CTN", "小包数": "Total Parcels",
-                    "COE重量 (KG)": "COE/UP Weight", "GOFO重量 (KG)": "GOFO Weight", "SPX重量(KG)": "SPX Weight", "UNI重量(KG)": "UNIUNI Weight", "USPS重量(KG)": "USPS Weight", "Fedex重量(KG)": "FEDEX Weight",
-                    "查验小包数": "", "航司目的港费": "", "航司拆板费 (BREAK DOWN)": "", "海关查验费 (不去CES不收)": "", "海关查验件 挑选费 ": "",
-                    "机场提货费 ": lambda r: round(safe_float(r.get("Weight")) * 0.1, 2),
-                    "库内拆板费 ": lambda r: round(safe_float(r.get("Weight")) * 0.09, 2),
-                    "送货费-GOFO ": lambda r: max(75, round(safe_float(r.get("GOFO Weight")) * 0.1, 2)) if safe_float(r.get("GOFO Weight")) > 0 else 0,
-                    "送货费-SPEEDX ": lambda r: max(75, round(safe_float(r.get("SPX Weight")) * 0.1, 2)) if safe_float(r.get("SPX Weight")) > 0 else 0,
-                    "送货费-UNI ": lambda r: max(75, round(safe_float(r.get("UNIUNI Weight")) * 0.1, 2)) if safe_float(r.get("UNIUNI Weight")) > 0 else 0,
-                    "送货费-USPS ": lambda r: max(75, round(safe_float(r.get("USPS Weight")) * 0.1, 2)) if safe_float(r.get("USPS Weight")) > 0 else 0,
-                    "Gaylord ($15)": lambda r: ceil_val(r.get("USPS CTN"), 16) * 15,
-                    "PALLET ($12)": lambda r: (ceil_val(r.get("COE/UP CTN"), 16) + ceil_val(r.get("GOFO CTN"), 16) + ceil_val(r.get("SPX CTN"), 16) + ceil_val(r.get("UNIUNI CTN"), 16) + ceil_val(r.get("USPS CTN"), 16) + ceil_val(r.get("FEDEX CTN"), 16)) * 12,
-                    "COE Pallet #": lambda r: ceil_val(r.get("COE/UP CTN"), 16),
-                    "GOFO Pallet #": lambda r: ceil_val(r.get("GOFO CTN"), 16),
-                    "SPX Pallet #": lambda r: ceil_val(r.get("SPX CTN"), 16),
-                    "UNI Pallet #": lambda r: ceil_val(r.get("UNIUNI CTN"), 16),
-                    "USPS Pallet #": lambda r: ceil_val(r.get("USPS CTN"), 16),
-                    "Fedex Pallet #": lambda r: ceil_val(r.get("FEDEX CTN"), 16),
-                    "备注": ""
-                }
-            }
-        ],
-        "JFK-BDT": [
-            {
-                "suffix": "-实报实销",
-                "mapping": {
-                    "主单号": "MAWB", "收据": "", "口岸": "JFK", "月份": month_abbr, "ETA": "ETA", "重量(KG)": "Weight", "大包数": "Total CTN", "小包数": "Total Parcels",
-                    "COE重量 (KG)": "COE/UP Weight", "GOFO重量 (KG)": "GOFO Weight", "SPX重量(KG)": "SPX Weight", "UNI重量(KG)": "UNIUNI Weight", "USPS重量(KG)": "USPS Weight", "Fedex重量(KG)": "FEDEX Weight",
-                    "查验小包数": "", "航司目的港费": "", "航司拆板费 (BREAK DOWN)": "", "海关查验费 (不去CES不收)": "", "海关查验件 挑选费 ": "",
-                    "机场提货费 ": lambda r: round(safe_float(r.get("Weight")) * 0.1, 2),
-                    "库内拆板费 ": lambda r: round(safe_float(r.get("Weight")) * 0.09, 2),
-                    "送货费-GOFO ": lambda r: max(75, round(safe_float(r.get("GOFO Weight")) * 0.1, 2)) if safe_float(r.get("GOFO Weight")) > 0 else 0,
-                    "送货费-SPEEDX ": lambda r: max(75, round(safe_float(r.get("SPX Weight")) * 0.1, 2)) if safe_float(r.get("SPX Weight")) > 0 else 0,
-                    "送货费-UNI ": lambda r: max(75, round(safe_float(r.get("UNIUNI Weight")) * 0.1, 2)) if safe_float(r.get("UNIUNI Weight")) > 0 else 0,
-                    "送货费-USPS ": lambda r: max(75, round(safe_float(r.get("USPS Weight")) * 0.1, 2)) if safe_float(r.get("USPS Weight")) > 0 else 0,
-                    "Gaylord ($15)": lambda r: ceil_val(r.get("USPS CTN"), 10) * 15,
-                    "PALLET ($12)": lambda r: (ceil_val(r.get("COE/UP CTN"), 20) + ceil_val(r.get("GOFO CTN"), 20) + ceil_val(r.get("SPX CTN"), 20) + ceil_val(r.get("UNIUNI CTN"), 20) + ceil_val(r.get("USPS CTN"), 10) + ceil_val(r.get("FEDEX CTN"), 20)) * 12,
-                    "COE Pallet #": lambda r: ceil_val(r.get("COE/UP CTN"), 20),
-                    "GOFO Pallet #": lambda r: ceil_val(r.get("GOFO CTN"), 20),
-                    "SPX Pallet #": lambda r: ceil_val(r.get("SPX CTN"), 20),
-                    "UNI Pallet #": lambda r: ceil_val(r.get("UNIUNI CTN"), 20),
-                    "USPS Pallet #": lambda r: ceil_val(r.get("USPS CTN"), 10),
-                    "Fedex Pallet #": lambda r: ceil_val(r.get("FEDEX CTN"), 20),
-                    "备注": ""
-                }
             }
         ],
 
+        **{
+            f"{port}-BDT": [
+                {
+                    "suffix": "-日报",
+                    "mapping": {
+                        "1F": "", "FEE": "", "ACAS/AMS": "",
+                        "MAWB#": "MAWB", "FLIGHT#": "Flight Number", "ETA": "ETA", "ATA": "",
+                        "WEIGHT (KG)": "Weight", "TOTAL CTNS": "Total CTN", "PARCELS": "Total Parcels",
+                        # 六个主要大包数
+                        "COE": "COE/UP CTN", "SPX": "SPX CTN", "UNI": "UNIUNI CTN",
+                        "USPS": "USPS CTN", "FDX": "FEDEX CTN", "GOFO": "GOFO CTN",
+                        "TYPE": "", "PMC #": "", "PICKUP": "", "Customs Release": "", "HOLD": "", "REMARK": "",
+                        "WH Arrival": "",
+                        "INBOUND 2020": "", "OUTBOUND 2060": "",
+                        # Handover 逻辑
+                        "COE (2070)": lambda r: check_na(r.get("COE/UP CTN")),
+                        "SPX (2070)": lambda r: check_na(r.get("SPX CTN")),
+                        "UNI (2070)": lambda r: check_na(r.get("UNIUNI CTN")),
+                        "USPS (2070)": lambda r: check_na(r.get("USPS CTN")),
+                        "FDX (2070)": lambda r: check_na(r.get("FEDEX CTN")),
+                        "GOFO (2070)": lambda r: check_na(r.get("GOFO CTN")),
+                    }
+                },
+                {
+                    "suffix": "-实报实销",
+                    "mapping": {
+                        "主单号": "MAWB", "收据": "", "口岸": port, "月份": month_abbr, "ETA": "",
+                        "重量(KG)": "Weight", "大包数": "Total CTN", "小包数": "Total Parcels",
+                        # 大包数提取
+                        "COE": "COE/UP CTN", "GOFO": "GOFO CTN", "SPX": "SPX CTN",
+                        "UNI": "UNIUNI CTN", "USPS": "USPS CTN", "FDX": "FEDEX CTN",
+                        # 重量提取
+                        "COE重量 (KG)": "COE/UP Weight", "GOFO重量 (KG)": "GOFO Weight",
+                        "SPX重量(KG)": "SPX Weight", "UNI重量(KG)": "UNIUNI Weight",
+                        "USPS重量(KG)": "USPS Weight", "Fedex重量(KG)": "FEDEX Weight",
+
+                        "查验小包数": "",
+                        "（T11 MPF Fee换行MPF费用 (实报实销)）": "",
+                        "（关务关税-duty (实报实销））": "",
+                        "清关申报费（$0.15/ 小包）": lambda r: round(safe_float(r.get("Total Parcels")) * 0.15, 2),
+
+                        "航司目的港费+$10": "", "航司拆板费(BREAK DOWN)": "",
+                        "海关查验费(CES 的送货费，提货费，查验费)(实报实销)": "",
+                        "海关查验件挑选费($5/件,min 25)": "",
+
+                        "机场提货费 $0.10/KG,Min Charge $75": lambda r: max(75, round(safe_float(r.get("Weight")) * 0.1,
+                                                                                      2)) if safe_float(
+                            r.get("Weight")) > 0 else 0,
+                        "库内拆板费（$0.09/kg）": lambda r: round(safe_float(r.get("Weight")) * 0.09, 2),
+
+                        # 送货费逻辑
+                        "送货费-GOFO ($0.1/KG，Min75)": lambda r: max(75, round(safe_float(r.get("GOFO Weight")) * 0.1,
+                                                                               2)) if safe_float(
+                            r.get("GOFO Weight")) > 0 else 0,
+                        "送货费-SPEEDX ($0.1/KG，Min75)": lambda r: max(75, round(safe_float(r.get("SPX Weight")) * 0.1,
+                                                                                 2)) if safe_float(
+                            r.get("SPX Weight")) > 0 else 0,
+                        "送货费-UNI ($0.1/KG，Min75)": lambda r: max(75, round(safe_float(r.get("UNIUNI Weight")) * 0.1,
+                                                                              2)) if safe_float(
+                            r.get("UNIUNI Weight")) > 0 else 0,
+                        "送货费-USPS ($0.1/KG，Min75)": lambda r: max(75, round(safe_float(r.get("USPS Weight")) * 0.1,
+                                                                               2)) if safe_float(
+                            r.get("USPS Weight")) > 0 else 0,
+                        "送货费-Fedex ($0.1/KG，Min75)": lambda r: max(75, round(safe_float(r.get("FEDEX Weight")) * 0.1,
+                                                                                2)) if safe_float(
+                            r.get("FEDEX Weight")) > 0 else 0,
+
+                        # Gaylord 与 Pallet 系数逻辑 (ORD/MIA/LAX 不同)
+                        "Gaylord($15)": lambda r: (
+                            ceil_val(r.get("USPS CTN"), 20) * 15 * 2 if port == "ORD" else
+                            ceil_val(r.get("USPS CTN"), 16) * 15 if port == "MIA" else
+                            ceil_val(r.get("USPS CTN"), 10) * 15  # LAX/JFK
+                        ),
+
+                        "PALLET($12)": lambda r: (
+                            (ceil_val(r.get("COE/UP CTN"), 20) + ceil_val(r.get("GOFO CTN"), 20) + ceil_val(
+                                r.get("SPX CTN"), 20) + ceil_val(r.get("UNIUNI CTN"), 20) + ceil_val(r.get("USPS CTN"),
+                                                                                                     20) + ceil_val(
+                                r.get("FEDEX CTN"), 20)) * 12 if port == "ORD" else
+                            (ceil_val(r.get("COE/UP CTN"), 16) + ceil_val(r.get("GOFO CTN"), 16) + ceil_val(
+                                r.get("SPX CTN"), 16) + ceil_val(r.get("UNIUNI CTN"), 16) + ceil_val(r.get("USPS CTN"),
+                                                                                                     16) + ceil_val(
+                                r.get("FEDEX CTN"), 16)) * 12 if port == "MIA" else
+                            (ceil_val(r.get("COE/UP CTN"), 20) + ceil_val(r.get("GOFO CTN"), 20) + ceil_val(
+                                r.get("SPX CTN"), 20) + ceil_val(r.get("UNIUNI CTN"), 20) + ceil_val(r.get("USPS CTN"),
+                                                                                                     10) + ceil_val(
+                                r.get("FEDEX CTN"), 20)) * 12  # LAX/JFK
+                        ),
+
+                        "COEPallet #": lambda r: ceil_val(r.get("COE/UP CTN"), 16 if port == "MIA" else 20),
+                        "GOFOPallet #": lambda r: ceil_val(r.get("GOFO CTN"), 16 if port == "MIA" else 20),
+                        "SPXPallet #": lambda r: ceil_val(r.get("SPX CTN"), 16 if port == "MIA" else 20),
+                        "UNIPallet #": lambda r: ceil_val(r.get("UNIUNI CTN"), 16 if port == "MIA" else 20),
+                        "USPSPallet #": lambda r: ceil_val(r.get("USPS CTN"),
+                                                           16 if port == "MIA" else (20 if port == "ORD" else 10)),
+                        "FedexPallet #": lambda r: ceil_val(r.get("FEDEX CTN"), 16 if port == "MIA" else 20),
+                    }
+                }
+            ] for port in ["LAX", "ORD", "MIA", "JFK"]
+        }
     }
 
 
@@ -776,7 +726,7 @@ def run_main():
             continue
 
         print(f"🚀 正在处理: {base_name}")
-        df_src = pd.read_excel(src_path).tail(20)
+        df_src = pd.read_excel(src_path).tail(2000)
 
         for task in registry[base_name]:
             target_path = os.path.join(BASE_DIR, f"{base_name}{task['suffix']}.xlsx")
