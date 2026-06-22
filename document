@@ -298,7 +298,7 @@ def get_logic_registry(input_date, month_abbr):
                     "送货费-ACI": lambda r: max(75, round(safe_float(r.get("ACI Weight")) * 0.1, 2)) if safe_float(
                         r.get("ACI Weight")) > 0 else 0,
 
-                    "gayload": lambda r: (ceil_val(r.get("USPS CTN"), 20) + ceil_val(r.get("ATL-USPS CTN"), 20)) * 20,
+                    "gayload": lambda r: (ceil_val(r.get("USPS CTN"), 20) + ceil_val(r.get("ATL-USPS CTN"), 20)) * 30,
 
                     # --- 更新 Pallet 汇总公式：加入 Swiftx ---
                     "pallet": lambda r: (
@@ -399,7 +399,127 @@ def get_logic_registry(input_date, month_abbr):
                 }
             }
         ],
+        "JFK-AE": [
+            {
+                "suffix": "-日报",
+                "mapping": {
+                    "MAWB": "主单",
+                    "UP (Qty)": "COE 大箱数",
+                    "USPS (Qty)": "USPS 大箱数",
+                    "ONTRAC(Qty)": "",
+                    "DHLe(Qty)": "",
+                    "UNIUNI (Qty)": "UNIUNI 大箱数",
+                    "SpeedX (Qty)": "Speedx大箱数",
+                    "Maersk (Qty)": "Maersk 大箱数",
+                    "total": "总箱数",
+                    "parcel": "总包裹数",
+                    "PMC": "",
+                    "PMC / Loose on hand": "",
+                    "PMC return": "",
+                    "1F": "",
+                    "FLT#": "航班号",
+                    "ETA": "ETA",
+                    "ATA": "",
+                    "HOLDS": "",
+                    "P/U at GHA": "",
+                    "2020": "",
+                    "2060": "",
+                    "DLV 2070": "",
+                    "UP 2070": lambda r: check_na(r.get("COE 大箱数")),
+                    "USPS 2070": lambda r: check_na(r.get("USPS 大箱数")),
+                    "ONTRACK 2070": "-",
+                    "DHL 2070": "-",
+                    "SpeedX 2070": lambda r: check_na(r.get("Speedx大箱数")),
+                    "UNIUNI 2070": lambda r: check_na(r.get("UNIUNI 大箱数")),
+                    "Maersk 2070": lambda r: check_na(r.get("Maersk 大箱数"))
+                }
+            },
+            {
+                "suffix": "-实报实销",
+                "mapping": {
+                    "日期": lambda r: f"{datetime.now().month}-{datetime.now().day}",
+                    "主单号": "主单",
+                    "口岸": "JFK",  # <--- 口岸改为 JFK
+                    "ETA": "ETA",
+                    "总重量": lambda r: r.get("总重量") if pd.notna(r.get("总重量")) else r.get("Weight", "-"),
+                    "总箱数": "总箱数",
+                    "总包裹数": "总包裹数",
+                    "查验小包数": "",
+                    "海关查验件挑选费": "",
+                    "航司拆板费": "",
+                    "航司目的港费": "",
+                    "COE 大箱数": "COE 大箱数",
+                    "COE 重量": "COE 重量",
+                    "Maersk 大箱数": "Maersk 大箱数",
+                    "Maersk 重量": "Maersk 重量",
+                    "Speedx大箱数": "Speedx大箱数",
+                    "Speedx 重量": "Speedx重量",
+                    "COE 送货费": lambda r: round(safe_float(r.get("COE 重量")) * 0.1, 2),
+                    "Maersk送货费": lambda r: round(safe_float(r.get("Maersk 重量")) * 0.1, 2),
+                    "Speedx送货费": lambda r: round(safe_float(r.get("Speedx重量")) * 0.1, 2)
+                }
+            }
+        ],
 
+        # ---------------------------------------------------------
+        # 新增：JFK-4PX 的逻辑 (与 MIA-4PX 完全相同，仅口岸改为 JFK)
+        # ---------------------------------------------------------
+        "JFK-4PX": [
+            {
+                "suffix": "-日报",
+                "mapping": {
+                    "未识别渠道": "", "MAWB": "MAWB",
+                    "COE": "COE/UP CTN", "GOFO": "GOFO CTN", "SPX": "SPX CTN",
+                    "TOO": "TOO CTN", "USPS": "USPS CTN", "SWIFTX": "SWIFTX CTN",
+                    "YANWEN": "YW EXP CTN",
+                    "total CTN": lambda r: sum([safe_float(r.get(c)) for c in
+                                                ["COE/UP CTN", "GOFO CTN", "SPX CTN", "TOO CTN", "USPS CTN",
+                                                 "SWIFTX CTN"]]),
+                    "parcel": "Total Parcels", "PMC": "", "PMC return": "", "FLT#": "Flight Number",
+                    "ETA": "ETA", "HOLD": "", "1F": "", "Terminal Fee": "", "2020": "", "2060": "",
+                    "COE 2070": lambda r: check_na(r.get("COE/UP CTN")),
+                    "GOFO 2070": lambda r: check_na(r.get("GOFO CTN")),
+                    "SPX 2070": lambda r: check_na(r.get("SPX CTN")),
+                    "SWIFTX 2070": lambda r: check_na(r.get("SWIFTX CTN")),
+                    "TOO 2070": lambda r: check_na(r.get("TOO CTN")),
+                    "USPS 2070": lambda r: check_na(r.get("USPS CTN"))
+                }
+            },
+            {
+                "suffix": "-实报实销",
+                "mapping": {
+                    "主单号": "MAWB", "口岸": "JFK", "月份": month_abbr, "ETA": "ETA",  # <--- 口岸改为 JFK
+                    "大包": "Total CTN", "小包": "Total Parcels", "重量(KG)": "Weight",
+                    "COE/UP Weight": "COE/UP Weight", "GOFO Weight": "GOFO Weight",
+                    "SPX Weight": "SPX Weight", "SWIFTX Weight": "SWIFTX Weight",
+                    "TOO Weight": "TOO Weight", "USPS Weight": "USPS Weight", "YW EXP Weight": "YW EXP Weight",
+                    "查验小包数": "", "航司拆板费": "", "海关查验件挑选费": "", "ISC 费用": "",
+                    "机场提货费": lambda r: round(safe_float(r.get("Weight")) * 0.1, 2),
+                    "库内拆板费": lambda r: round(safe_float(r.get("Weight")) * 0.09, 2),
+                    "送货费": lambda r: (
+                            (max(75, safe_float(r.get("COE/UP Weight")) * 0.1) if safe_float(
+                                r.get("COE/UP Weight")) > 0 else 0) +
+                            (max(75, safe_float(r.get("USPS Weight")) * 0.1) if safe_float(
+                                r.get("USPS Weight")) > 0 else 0)
+                    ),
+                    "Gaylord": lambda r: ceil_val(r.get("USPS CTN"), 16) * 15,
+                    "Pallet": lambda r: (
+                                                ceil_val(r.get("COE/UP CTN"), 16) + ceil_val(r.get("GOFO CTN"), 16) +
+                                                ceil_val(r.get("SPX CTN"), 16) + ceil_val(r.get("SWIFTX CTN"),
+                                                                                          16) +
+                                                ceil_val(r.get("TOO CTN"), 16) + ceil_val(r.get("USPS CTN"), 16) +
+                                                ceil_val(r.get("YW EXP CTN"), 16)
+                                        ) * 12,
+                    "COE": lambda r: ceil_val(r.get("COE/UP CTN"), 16),
+                    "GOFO": lambda r: ceil_val(r.get("GOFO CTN"), 16),
+                    "SPX": lambda r: ceil_val(r.get("SPX CTN"), 16),
+                    "SWIFTX": lambda r: ceil_val(r.get("SWIFTX CTN"), 16),
+                    "TooExpress": lambda r: ceil_val(r.get("TOO CTN"), 16),
+                    "USPS": lambda r: ceil_val(r.get("USPS CTN"), 16),
+                    "Ywen": lambda r: ceil_val(r.get("YW EXP CTN"), 16),
+                }
+            }
+        ],
         "LAX-4PX": [
             {
                 "suffix": "-实报实销",
@@ -483,7 +603,7 @@ def get_logic_registry(input_date, month_abbr):
                 {
                     "suffix": "-实报实销",
                     "mapping": {
-                        "主单号": "MAWB", "收据": "", "口岸": port, "月份": month_abbr, "ETA": "",
+                        "主单号": "MAWB", "收据": "", "口岸": port, "月份": month_abbr, "ETA": "ETA",
                         "重量(KG)": "Weight", "大包数": "Total CTN", "小包数": "Total Parcels",
                         # 大包数提取
                         "COE": "COE/UP CTN", "GOFO": "GOFO CTN", "SPX": "SPX CTN",
@@ -565,6 +685,7 @@ def get_logic_registry(input_date, month_abbr):
 # =================================================================
 BASE_DIR = os.path.join(os.path.expanduser("~"), "Desktop", "测试文件夹")
 SOURCE_FILES = ["LAX-4PX", "LAX-AE", "MIA-4PX", "MIA-AE", "ORD-4PX", "ORD-AE",
+                "JFK-4PX", "JFK-AE",  # <--- 新增这两行
                 "LAX-BDT", "ORD-BDT", "MIA-BDT", "JFK-BDT"]
 
 def get_local_time():
