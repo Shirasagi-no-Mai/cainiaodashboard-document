@@ -469,30 +469,63 @@ def get_logic_registry(input_date, month_abbr):
                 "suffix": "-日报",
                 "mapping": {
                     "未识别渠道": "", "MAWB": "MAWB",
-                    "COE": "COE/UP CTN", "GOFO": "GOFO CTN", "SPX": "SPX CTN",
-                    "TOO": "TOO CTN", "USPS": "USPS CTN", "SWIFTX": "SWIFTX CTN",
+                    # --- 扩充后的所有 CTN 渠道映射 ---
+                    "ACI": "ACI CTN",
+                    "COE": "COE/UP CTN",
+                    "DHL": "DHL CTN",
+                    "FEDEX": "FEDEX CTN",
+                    "GOFO": "GOFO CTN",
+                    "IB": "IB CTN",
+                    "OC UNIUNI": "OC UNIUNI CTN",
+                    "SPX": "SPX CTN",
+                    "SWIFTX": "SWIFTX CTN",
+                    "TOO": "TOO CTN",
+                    "UNIUNI": "UNIUNI CTN",
+                    "USPS": "USPS CTN",
                     "YANWEN": "YW EXP CTN",
-                    "total CTN": lambda r: sum([safe_float(r.get(c)) for c in
-                                                ["COE/UP CTN", "GOFO CTN", "SPX CTN", "TOO CTN", "USPS CTN",
-                                                 "SWIFTX CTN"]]),
+                    # --- 总箱数计算（包含所有新渠道） ---
+                    "total CTN": lambda r: sum([safe_float(r.get(c)) for c in [
+                        "ACI CTN", "COE/UP CTN", "DHL CTN", "FEDEX CTN", "GOFO CTN", "IB CTN",
+                        "OC UNIUNI CTN", "SPX CTN", "SWIFTX CTN", "TOO CTN", "UNIUNI CTN", "USPS CTN", "YW EXP CTN"
+                    ]]),
                     "parcel": "Total Parcels", "PMC": "", "PMC return": "", "FLT#": "Flight Number",
                     "ETA": "ETA", "HOLD": "", "1F": "", "Terminal Fee": "", "2020": "", "2060": "",
+                    # --- 2070 状态检查同步扩充 ---
+                    "ACI 2070": lambda r: check_na(r.get("ACI CTN")),
                     "COE 2070": lambda r: check_na(r.get("COE/UP CTN")),
+                    "DHL 2070": lambda r: check_na(r.get("DHL CTN")),
+                    "FEDEX 2070": lambda r: check_na(r.get("FEDEX CTN")),
                     "GOFO 2070": lambda r: check_na(r.get("GOFO CTN")),
+                    "IB 2070": lambda r: check_na(r.get("IB CTN")),
+                    "OC UNIUNI 2070": lambda r: check_na(r.get("OC UNIUNI CTN")),
                     "SPX 2070": lambda r: check_na(r.get("SPX CTN")),
                     "SWIFTX 2070": lambda r: check_na(r.get("SWIFTX CTN")),
                     "TOO 2070": lambda r: check_na(r.get("TOO CTN")),
-                    "USPS 2070": lambda r: check_na(r.get("USPS CTN"))
+                    "UNIUNI 2070": lambda r: check_na(r.get("UNIUNI CTN")),
+                    "USPS 2070": lambda r: check_na(r.get("USPS CTN")),
+                    "YANWEN 2070": lambda r: check_na(r.get("YW EXP CTN"))
                 }
             },
             {
                 "suffix": "-实报实销",
                 "mapping": {
-                    "主单号": "MAWB", "口岸": "JFK", "月份": month_abbr, "ETA": "ETA",  # <--- 口岸改为 JFK
+                    "主单号": "MAWB", "口岸": "JFK", "月份": month_abbr, "ETA": "ETA",
                     "大包": "Total CTN", "小包": "Total Parcels", "重量(KG)": "Weight",
-                    "COE/UP Weight": "COE/UP Weight", "GOFO Weight": "GOFO Weight",
-                    "SPX Weight": "SPX Weight", "SWIFTX Weight": "SWIFTX Weight",
-                    "TOO Weight": "TOO Weight", "USPS Weight": "USPS Weight", "YW EXP Weight": "YW EXP Weight",
+                    # --- 扩充后的所有渠道 Weight 映射 ---
+                    "ACI Weight": "ACI Weight",
+                    "COE/UP Weight": "COE/UP Weight",
+                    "DHL Weight": "DHL Weight",
+                    "FEDEX Weight": "FEDEX Weight",
+                    "GOFO Weight": "GOFO Weight",
+                    "IB Weight": "IB Weight",
+                    "OC UNIUNI Weight": "OC UNIUNI Weight",
+                    "SPX Weight": "SPX Weight",
+                    "SWIFTX Weight": "SWIFTX Weight",
+                    "TOO Weight": "TOO Weight",
+                    "UNIUNI Weight": "UNIUNI Weight",
+                    "USPS Weight": "USPS Weight",
+                    "YW EXP Weight": "YW EXP Weight",
+                    # --- 费用计算部分（保持原逻辑不变） ---
                     "查验小包数": "", "航司拆板费": "", "海关查验件挑选费": "", "ISC 费用": "",
                     "机场提货费": lambda r: round(safe_float(r.get("Weight")) * 0.1, 2),
                     "库内拆板费": lambda r: round(safe_float(r.get("Weight")) * 0.09, 2),
@@ -503,18 +536,34 @@ def get_logic_registry(input_date, month_abbr):
                                 r.get("USPS Weight")) > 0 else 0)
                     ),
                     "Gaylord": lambda r: ceil_val(r.get("USPS CTN"), 16) * 15,
+                    # --- Pallet 计算同步累加所有新渠道 ---
                     "Pallet": lambda r: (
-                                                ceil_val(r.get("COE/UP CTN"), 16) + ceil_val(r.get("GOFO CTN"), 16) +
-                                                ceil_val(r.get("SPX CTN"), 16) + ceil_val(r.get("SWIFTX CTN"),
-                                                                                          16) +
-                                                ceil_val(r.get("TOO CTN"), 16) + ceil_val(r.get("USPS CTN"), 16) +
+                                                ceil_val(r.get("ACI CTN"), 16) +
+                                                ceil_val(r.get("COE/UP CTN"), 16) +
+                                                ceil_val(r.get("DHL CTN"), 16) +
+                                                ceil_val(r.get("FEDEX CTN"), 16) +
+                                                ceil_val(r.get("GOFO CTN"), 16) +
+                                                ceil_val(r.get("IB CTN"), 16) +
+                                                ceil_val(r.get("OC UNIUNI CTN"), 16) +
+                                                ceil_val(r.get("SPX CTN"), 16) +
+                                                ceil_val(r.get("SWIFTX CTN"), 16) +
+                                                ceil_val(r.get("TOO CTN"), 16) +
+                                                ceil_val(r.get("UNIUNI CTN"), 16) +
+                                                ceil_val(r.get("USPS CTN"), 16) +
                                                 ceil_val(r.get("YW EXP CTN"), 16)
                                         ) * 12,
+                    # --- 底部所有渠道拆板数明细同步扩充 ---
+                    "ACI": lambda r: ceil_val(r.get("ACI CTN"), 16),
                     "COE": lambda r: ceil_val(r.get("COE/UP CTN"), 16),
+                    "DHL": lambda r: ceil_val(r.get("DHL CTN"), 16),
+                    "FEDEX": lambda r: ceil_val(r.get("FEDEX CTN"), 16),
                     "GOFO": lambda r: ceil_val(r.get("GOFO CTN"), 16),
+                    "IB": lambda r: ceil_val(r.get("IB CTN"), 16),
+                    "OC UNIUNI": lambda r: ceil_val(r.get("OC UNIUNI CTN"), 16),
                     "SPX": lambda r: ceil_val(r.get("SPX CTN"), 16),
                     "SWIFTX": lambda r: ceil_val(r.get("SWIFTX CTN"), 16),
                     "TooExpress": lambda r: ceil_val(r.get("TOO CTN"), 16),
+                    "UNIUNI": lambda r: ceil_val(r.get("UNIUNI CTN"), 16),
                     "USPS": lambda r: ceil_val(r.get("USPS CTN"), 16),
                     "Ywen": lambda r: ceil_val(r.get("YW EXP CTN"), 16),
                 }
