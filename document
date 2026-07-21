@@ -130,9 +130,12 @@ def get_logic_registry(input_date, month_abbr):
                     "Maersk 重量": "Maersk 重量",
                     "Speedx大箱数": "Speedx大箱数", # ✅ 新增
                     "Speedx 重量": "Speedx重量", # ✅ 新增
+                    "USPS 大箱数": "USPS 大箱数", # 🆕 新增
+                    "USPS 重量": "USPS 重量", # 🆕 新增
                     "COE 送货费": lambda r: round(safe_float(r.get("COE 重量")) * 0.1, 2),
                     "Maersk送货费": lambda r: round(safe_float(r.get("Maersk 重量")) * 0.1, 2),
-                    "Speedx送货费": lambda r: round(safe_float(r.get("Speedx重量")) * 0.1, 2) # ✅ 新增
+                    "Speedx送货费": lambda r: round(safe_float(r.get("Speedx重量")) * 0.1, 2), # ✅ 新增
+                    "USPS 送货费": lambda r: round(safe_float(r.get("USPS 重量")) * 0.1, 2) # 🆕 新增 # ✅ 新增
                 }
             }
         ],
@@ -533,7 +536,9 @@ def get_logic_registry(input_date, month_abbr):
                             (max(75, safe_float(r.get("COE/UP Weight")) * 0.1) if safe_float(
                                 r.get("COE/UP Weight")) > 0 else 0) +
                             (max(75, safe_float(r.get("USPS Weight")) * 0.1) if safe_float(
-                                r.get("USPS Weight")) > 0 else 0)
+                                r.get("USPS Weight")) > 0 else 0) +   # ⬅️ 补上了此处的加号
+                            (max(75, safe_float(r.get("DHL Weight")) * 0.1) if safe_float(
+                                r.get("DHL Weight")) > 0 else 0)     # ⬅️ 修正为 DHL Weight
                     ),
                     "Gaylord": lambda r: ceil_val(r.get("USPS CTN"), 16) * 15,
                     # --- Pallet 计算同步累加所有新渠道 ---
